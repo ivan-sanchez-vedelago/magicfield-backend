@@ -15,10 +15,8 @@ import java.io.IOException;
 @Configuration
 public class FirebaseConfig {
 
-    private static final Logger logger = LoggerFactory.getLogger(FirebaseConfig.class);
-
-    @Value("${firebase.service.account.path:}")
-    private String serviceAccountPath;
+    @Value("${FIREBASE_SERVICE_ACCOUNT_JSON:}")
+    private String firebaseJson;
 
     @Value("${firebase.bucket}")
     private String bucketName;
@@ -27,21 +25,23 @@ public class FirebaseConfig {
     public void init() {
         if (FirebaseApp.getApps().isEmpty()) {
             try {
-                if (serviceAccountPath == null || serviceAccountPath.isBlank()) {
-                    // TODO: Provide a service account JSON via environment variable `FIREBASE_SERVICE_ACCOUNT_PATH`.
-                    logger.warn("No Firebase service account configured. Firebase token verification will fail until configured.");
-                    return;
+
+                if (firebaseJson == null || firebaseJson.isBlank()) {
+                    throw new RuntimeException("Firebase JSON not configured");
                 }
 
-                FileInputStream serviceAccount = new FileInputStream(serviceAccountPath);
+                InputStream serviceAccount =
+                        new ByteArrayInputStream(firebaseJson.getBytes(StandardCharsets.UTF_8));
+
                 FirebaseOptions options = FirebaseOptions.builder()
                         .setCredentials(GoogleCredentials.fromStream(serviceAccount))
                         .setStorageBucket(bucketName)
                         .build();
+
                 FirebaseApp.initializeApp(options);
-                logger.info("Firebase initialized from {}", serviceAccountPath);
-            } catch (IOException e) {
-                logger.error("Failed to initialize Firebase", e);
+
+            } catch (Exception e) {
+                throw new RuntimeException("Firebase init failed", e);
             }
         }
     }
