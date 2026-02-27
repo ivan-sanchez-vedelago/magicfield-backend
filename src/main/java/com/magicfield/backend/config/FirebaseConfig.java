@@ -18,6 +18,9 @@ import java.io.IOException;
 @Configuration
 public class FirebaseConfig {
 
+    @Value("${FIREBASE_SERVICE_ACCOUNT_PATH:}")
+    private String firebasePath;
+
     @Value("${FIREBASE_SERVICE_ACCOUNT_JSON:}")
     private String firebaseJson;
 
@@ -28,13 +31,15 @@ public class FirebaseConfig {
     public void init() {
         if (FirebaseApp.getApps().isEmpty()) {
             try {
+                InputStream serviceAccount;
 
-                if (firebaseJson == null || firebaseJson.isBlank()) {
-                    throw new RuntimeException("Firebase JSON not configured");
+                if (firebaseJson != null && !firebaseJson.isBlank()) {
+                    serviceAccount = new ByteArrayInputStream(
+                        firebaseJson.getBytes(StandardCharsets.UTF_8)
+                    );
+                } else {
+                    serviceAccount = new FileInputStream(firebasePath);
                 }
-
-                InputStream serviceAccount =
-                        new ByteArrayInputStream(firebaseJson.getBytes(StandardCharsets.UTF_8));
 
                 FirebaseOptions options = FirebaseOptions.builder()
                         .setCredentials(GoogleCredentials.fromStream(serviceAccount))
