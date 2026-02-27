@@ -1,0 +1,26 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+firebase:
+  bucket: ${FIREBASE_BUCKET}
+  service:
+    account:
+      json: ${FIREBASE_SERVICE_ACCOUNT_JSON}
+
+mail:
+  username: ${MAIL_USERNAME}
+  password: ${MAIL_PASSWORD}
+
+app:
+  admin-email: ${ADMIN_EMAIL}
