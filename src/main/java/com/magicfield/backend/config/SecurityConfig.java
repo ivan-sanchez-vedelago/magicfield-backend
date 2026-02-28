@@ -3,11 +3,13 @@ package com.magicfield.backend.config;
 import com.magicfield.backend.security.FirebaseAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration
 @EnableMethodSecurity
@@ -20,36 +22,42 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            CorsConfigurationSource corsConfigurationSource
+    ) throws Exception {
 
         http
-            // 🔥 MUY IMPORTANTE PARA CORS
-            .cors(cors -> {})
+            // 🔥 usar configuración CORS global
+            .cors(cors -> cors.configurationSource(corsConfigurationSource))
 
-            // sin csrf para api stateless
+            // API stateless
             .csrf(csrf -> csrf.disable())
 
-            // sin sesiones
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
 
-            // permisos
             .authorizeHttpRequests(auth -> auth
-                // permitir preflight CORS
-                .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
 
-                // endpoints públicos
-                .requestMatchers("/api/public/**", "/health", "/api/products/**").permitAll()
+                // preflight CORS
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // checkout también público (o va a pedir auth)
+                // públicos
+                .requestMatchers("/health").permitAll()
+                .requestMatchers("/api/products/**").permitAll()
+                .requestMatchers("/api/public/**").permitAll()
                 .requestMatchers("/api/orders/checkout").permitAll()
 
+                // resto protegido
                 .anyRequest().authenticated()
             )
 
-            // firebase auth filter
-            .addFilterBefore(firebaseAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+            // auth firebase
+            .addFilterBefore(
+                firebaseAuthenticationFilter,
+                UsernamePasswordAuthenticationFilter.class
+            );
 
         return http.build();
     }

@@ -2,10 +2,9 @@ package com.magicfield.backend.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-import org.springframework.web.cors.*;
-import org.springframework.web.filter.CorsFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
 
@@ -13,29 +12,24 @@ import java.util.List;
 public class CorsConfig {
 
     @Bean
-    public WebMvcConfigurer corsConfigurer() {
-        return new WebMvcConfigurer() {
-            @Override
-            public void addCorsMappings(CorsRegistry registry) {
-                registry.addMapping("/api/**")
-                        .allowedOrigins("http://localhost:3000")
-                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                        .allowedHeaders("*");
-            }
-        };
-    }
-
-    @Bean
-    public CorsFilter corsFilter() {
+    public CorsConfigurationSource corsConfigurationSource() {
 
         CorsConfiguration config = new CorsConfiguration();
 
+        // permitir cookies / auth headers
         config.setAllowCredentials(true);
-        config.setAllowedOrigins(List.of(
-                "http://localhost:3000"
+
+        // ORIGENES PERMITIDOS
+        config.setAllowedOriginPatterns(List.of(
+                "http://localhost:3000",
+                "https://magicfield-frontend.vercel.app",
+                "https://*.vercel.app"   // preview deployments
         ));
 
+        // HEADERS
         config.setAllowedHeaders(List.of("*"));
+
+        // METODOS HTTP
         config.setAllowedMethods(List.of(
                 "GET",
                 "POST",
@@ -44,11 +38,14 @@ public class CorsConfig {
                 "OPTIONS"
         ));
 
+        // CACHE preflight 1 hora
+        config.setMaxAge(3600L);
+
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
 
         source.registerCorsConfiguration("/**", config);
 
-        return new CorsFilter(source);
+        return source;
     }
 }
