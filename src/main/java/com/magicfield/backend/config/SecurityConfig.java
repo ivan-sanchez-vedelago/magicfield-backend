@@ -40,20 +40,25 @@ public class SecurityConfig {
 
             .authorizeHttpRequests(auth -> auth
 
-                // preflight CORS
+                // Preflight CORS
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // públicos
+                // Públicos
                 .requestMatchers("/health").permitAll()
-                .requestMatchers("/api/products/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+
+                // Privados (requieren autenticación)
+                .requestMatchers(HttpMethod.POST, "/api/products/**").permitAll()
+                .requestMatchers(HttpMethod.PUT, "/api/products/**").permitAll()
+                .requestMatchers(HttpMethod.DELETE, "/api/products/**").permitAll()
+                
                 .requestMatchers("/api/public/**").permitAll()
                 .requestMatchers("/api/orders/checkout").permitAll()
 
-                // resto protegido
                 .anyRequest().authenticated()
             )
 
-            // auth firebase
+            // Auth firebase
             .addFilterBefore(
                 firebaseAuthenticationFilter,
                 UsernamePasswordAuthenticationFilter.class

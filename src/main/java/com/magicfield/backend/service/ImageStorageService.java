@@ -13,7 +13,7 @@ import java.nio.charset.StandardCharsets;
 @Service
 public class ImageStorageService {
 
-    public String upload(Long productId, MultipartFile file) throws IOException {
+    public String upload(UUID productId, MultipartFile file) throws IOException {
 
         String fileName = UUID.randomUUID() + "-" + file.getOriginalFilename();
 

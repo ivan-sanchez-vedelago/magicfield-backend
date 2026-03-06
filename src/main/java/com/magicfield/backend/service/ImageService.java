@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.UUID;
 
 @Service
 public class ImageService {
@@ -28,7 +29,7 @@ public class ImageService {
     }
 
     @Transactional
-    public Image upload(Long productId, MultipartFile file) throws IOException {
+    public Image upload(UUID productId, MultipartFile file) throws IOException {
 
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado"));

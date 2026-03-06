@@ -12,6 +12,7 @@ import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,7 +39,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public ProductResponse getById(Long id) {
+    public ProductResponse getById(UUID id) {
         Product p = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
         return toResponse(p);
@@ -57,7 +58,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public ProductResponse update(Long id, ProductRequest request) {
+    public ProductResponse update(UUID id, ProductRequest request) {
         Product p = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
 
@@ -71,7 +72,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public void delete(Long id) {
+    public void delete(UUID id) {
         if (!productRepository.existsById(id)) {
             throw new ProductNotFoundException(id);
         }
@@ -80,7 +81,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public void decreaseStock(Long productId, int quantity) {
+    public void decreaseStock(UUID productId, int quantity) {
 
         if (quantity <= 0) {
             throw new IllegalArgumentException("Quantity must be greater than 0");

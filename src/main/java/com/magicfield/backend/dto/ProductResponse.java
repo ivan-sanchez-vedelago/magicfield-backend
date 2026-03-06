@@ -2,10 +2,11 @@ package com.magicfield.backend.dto;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.UUID;
 
 public class ProductResponse {
 
-    private Long id;
+    private UUID id;
     private String name;
     private String description;
     private BigDecimal price;
@@ -18,7 +19,7 @@ public class ProductResponse {
     }
 
     public ProductResponse(
-            Long id,
+            UUID id,
             String name,
             String description,
             BigDecimal price,
@@ -33,7 +34,7 @@ public class ProductResponse {
         this.imageUrls = imageUrls;
     }
 
-    public Long getId() {
+    public UUID getId() {
         return id;
     }
 
@@ -57,7 +58,7 @@ public class ProductResponse {
         return imageUrls;
     }
 
-    public void setId(Long id) {
+    public void setId(UUID id) {
         this.id = id;
     }
 

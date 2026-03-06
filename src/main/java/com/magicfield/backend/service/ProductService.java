@@ -4,17 +4,18 @@ import com.magicfield.backend.dto.ProductRequest;
 import com.magicfield.backend.dto.ProductResponse;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface ProductService {
     List<ProductResponse> listAll();
 
-    ProductResponse getById(Long id);
+    ProductResponse getById(UUID id);
 
     ProductResponse create(ProductRequest request);
 
-    ProductResponse update(Long id, ProductRequest request);
+    ProductResponse update(UUID id, ProductRequest request);
 
-    void delete(Long id);
+    void delete(UUID id);
 
-    void decreaseStock(Long productId, int quantity);
+    void decreaseStock(UUID productId, int quantity);
 }
