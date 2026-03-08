@@ -11,6 +11,7 @@ public class ProductResponse {
     private String description;
     private BigDecimal price;
     private Integer stock;
+    private String type;
 
     // URLs públicas (Firebase, S3, CDN, etc.)
     private List<String> imageUrls;
@@ -24,6 +25,7 @@ public class ProductResponse {
             String description,
             BigDecimal price,
             Integer stock,
+            String type,
             List<String> imageUrls
     ) {
         this.id = id;
@@ -31,6 +33,7 @@ public class ProductResponse {
         this.description = description;
         this.price = price;
         this.stock = stock;
+        this.type = type;
         this.imageUrls = imageUrls;
     }
 
@@ -52,6 +55,10 @@ public class ProductResponse {
 
     public Integer getStock() {
         return stock;
+    }
+
+    public String getType() {
+        return type;
     }
 
     public List<String> getImageUrls() {
@@ -76,6 +83,10 @@ public class ProductResponse {
 
     public void setStock(Integer stock) {
         this.stock = stock;
+    }
+
+    public void setType(String type) {
+        this.type = type;
     }
 
     public void setImageUrls(List<String> imageUrls) {

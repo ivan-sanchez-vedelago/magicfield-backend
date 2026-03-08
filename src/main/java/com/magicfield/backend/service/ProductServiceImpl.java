@@ -137,6 +137,7 @@ public class ProductServiceImpl implements ProductService {
                 p.getDescription(),
                 p.getPrice(),
                 p.getStock(),
+                p.getType() != null ? p.getType().toString() : null,
                 imageUrls
         );
     }

@@ -2,6 +2,7 @@ package com.magicfield.backend.entity;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,6 +26,13 @@ public class Product {
     @Column(nullable = false)
     private Integer stock;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ProductType type;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
     @OneToMany(
         mappedBy = "product",
         cascade = CascadeType.ALL,
@@ -32,7 +40,30 @@ public class Product {
     )
     private List<Image> images;
 
-    public Product() {}
+    @OneToOne(
+        mappedBy = "product",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true
+    )
+    private SingleCard singleCard;
+
+    @OneToOne(
+        mappedBy = "product",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true
+    )
+    private SealedProduct sealedProduct;
+
+    @OneToOne(
+        mappedBy = "product",
+        cascade = CascadeType.ALL,
+        orphanRemoval = true
+    )
+    private OtherProduct otherProduct;
+
+    public Product() {
+        this.createdAt = LocalDateTime.now();
+    }
 
     public List<Image> getImages() {
         return images;
@@ -40,6 +71,30 @@ public class Product {
 
     public void setImages(List<Image> images) {
         this.images = images;
+    }
+
+    public SingleCard getSingleCard() {
+        return singleCard;
+    }
+
+    public void setSingleCard(SingleCard singleCard) {
+        this.singleCard = singleCard;
+    }
+
+    public SealedProduct getSealedProduct() {
+        return sealedProduct;
+    }
+
+    public void setSealedProduct(SealedProduct sealedProduct) {
+        this.sealedProduct = sealedProduct;
+    }
+
+    public OtherProduct getOtherProduct() {
+        return otherProduct;
+    }
+
+    public void setOtherProduct(OtherProduct otherProduct) {
+        this.otherProduct = otherProduct;
     }
 
     public UUID getId() {
@@ -80,5 +135,21 @@ public class Product {
 
     public void setStock(Integer stock) {
         this.stock = stock;
+    }
+
+    public ProductType getType() {
+        return type;
+    }
+
+    public void setType(ProductType type) {
+        this.type = type;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 }
