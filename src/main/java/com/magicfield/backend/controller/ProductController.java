@@ -74,13 +74,4 @@ public class ProductController {
         productService.decreaseStock(id, quantity);
         return ResponseEntity.noContent().build();
     }
-
-    @PatchMapping("/{id}/image")
-    public ProductResponse updateImage(
-            @PathVariable UUID id,
-            @RequestParam String imageUrl
-    ) {
-        return productService.updateImage(id, imageUrl);
-    }
-
 }
