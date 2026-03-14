@@ -50,6 +50,7 @@ public class SecurityConfig {
                 // Privados (requieren autenticación)
                 .requestMatchers(HttpMethod.POST, "/api/products/**").permitAll()
                 .requestMatchers(HttpMethod.PUT, "/api/products/**").permitAll()
+                .requestMatchers(HttpMethod.PATCH, "/api/products/**").permitAll()
                 .requestMatchers(HttpMethod.DELETE, "/api/products/**").permitAll()
                 
                 .requestMatchers("/api/public/**").permitAll()

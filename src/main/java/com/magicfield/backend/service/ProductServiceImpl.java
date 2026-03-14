@@ -4,6 +4,7 @@ import com.magicfield.backend.dto.ProductRequest;
 import com.magicfield.backend.dto.ProductResponse;
 import com.magicfield.backend.entity.Image;
 import com.magicfield.backend.entity.Product;
+import com.magicfield.backend.entity.ProductType;
 import com.magicfield.backend.exception.ProductNotFoundException;
 import com.magicfield.backend.service.ImageStorageService;
 import com.magicfield.backend.repository.ImageRepository;
@@ -47,14 +48,20 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public ProductResponse create(ProductRequest request) {
-        Product p = new Product();
-        p.setName(request.getName());
-        p.setDescription(request.getDescription());
-        p.setPrice(request.getPrice());
-        p.setStock(request.getStock());
+        try {
+            Product p = new Product();
+            p.setName(request.getName());
+            p.setDescription(request.getDescription());
+            p.setPrice(request.getPrice());
+            p.setStock(request.getStock());
+            ProductType typeEnum = ProductType.valueOf(request.getType().toUpperCase());
+            p.setType(typeEnum);
 
-        Product saved = productRepository.save(p);
-        return toResponse(saved);
+            Product saved = productRepository.save(p);
+            return toResponse(saved);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Tipo de producto inválido: " + request.getType());
+        }
     }
 
     @Override
@@ -66,6 +73,17 @@ public class ProductServiceImpl implements ProductService {
         p.setDescription(request.getDescription());
         p.setPrice(request.getPrice());
         p.setStock(request.getStock());
+
+        Product saved = productRepository.save(p);
+        return toResponse(saved);
+    }
+
+    @Override
+    public ProductResponse updateStock(UUID id, int stock) {
+        Product p = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException(id));
+
+        p.setStock(stock);
 
         Product saved = productRepository.save(p);
         return toResponse(saved);

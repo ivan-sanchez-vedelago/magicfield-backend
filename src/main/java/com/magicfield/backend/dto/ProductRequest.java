@@ -17,6 +17,9 @@ public class ProductRequest {
     @NotNull
     private Integer stock;
 
+    @NotNull
+    private String type;
+
     public ProductRequest() {
     }
 
@@ -50,5 +53,13 @@ public class ProductRequest {
 
     public void setStock(Integer stock) {
         this.stock = stock;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
     }
 }

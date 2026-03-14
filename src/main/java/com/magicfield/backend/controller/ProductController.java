@@ -50,6 +50,14 @@ public class ProductController {
         return productService.update(id, request);
     }
 
+    @PatchMapping("/{id}/stock")
+    public ProductResponse updateStock(
+            @PathVariable UUID id,
+            @RequestParam int stock
+    ) {
+        return productService.updateStock(id, stock);
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(
             @PathVariable UUID id
@@ -67,5 +75,12 @@ public class ProductController {
         return ResponseEntity.noContent().build();
     }
 
+    @PatchMapping("/{id}/image")
+    public ProductResponse updateImage(
+            @PathVariable UUID id,
+            @RequestParam String imageUrl
+    ) {
+        return productService.updateImage(id, imageUrl);
+    }
 
 }
