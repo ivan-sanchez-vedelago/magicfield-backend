@@ -14,7 +14,9 @@ public class Image {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
-    @Column(nullable = false)
+    // El campo url se define como TEXT para permitir
+    // URLs de mas de 255 caracteres
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String url;
 
     @Column(name = "is_primary")
