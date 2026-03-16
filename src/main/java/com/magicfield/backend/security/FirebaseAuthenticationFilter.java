@@ -5,7 +5,6 @@ import com.google.firebase.auth.FirebaseAuthException;
 import com.google.firebase.auth.FirebaseToken;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpFilter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
@@ -14,18 +13,19 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 @Component
-public class FirebaseAuthenticationFilter extends HttpFilter {
+public class FirebaseAuthenticationFilter extends OncePerRequestFilter {
 
     private static final Logger logger = LoggerFactory.getLogger(FirebaseAuthenticationFilter.class);
 
     @Override
-    protected void doFilter(HttpServletRequest req, HttpServletResponse res, FilterChain chain) throws IOException, ServletException {
+    protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain) throws IOException, ServletException {
         String header = req.getHeader("Authorization");
         if (header != null && header.startsWith("Bearer ")) {
             String idToken = header.substring(7);
@@ -39,7 +39,6 @@ public class FirebaseAuthenticationFilter extends HttpFilter {
                 } else {
                     authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
                 }
-
                 // Use uid as principal and email as credentials (read-only in this context)
                 String email = (String) decoded.getClaims().get("email");
                 UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(uid, email, authorities);
@@ -49,7 +48,6 @@ public class FirebaseAuthenticationFilter extends HttpFilter {
                 // No authentication set; request will be rejected by security if required
             }
         }
-
         chain.doFilter(req, res);
     }
 }

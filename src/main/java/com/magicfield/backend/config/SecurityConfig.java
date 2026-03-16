@@ -26,7 +26,6 @@ public class SecurityConfig {
             HttpSecurity http,
             CorsConfigurationSource corsConfigurationSource
     ) throws Exception {
-
         http
             // 🔥 usar configuración CORS global
             .cors(cors -> cors.configurationSource(corsConfigurationSource))
@@ -37,15 +36,14 @@ public class SecurityConfig {
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
-
             .authorizeHttpRequests(auth -> auth
-
                 // Preflight CORS
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                 // Públicos
                 .requestMatchers("/health").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/orders/checkout").permitAll()
 
                 // Privados (requieren autenticación)
                 .requestMatchers(HttpMethod.POST, "/api/products/**").permitAll()
@@ -54,17 +52,13 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.DELETE, "/api/products/**").permitAll()
                 
                 .requestMatchers("/api/public/**").permitAll()
-                .requestMatchers("/api/orders/checkout").permitAll()
-
                 .anyRequest().authenticated()
             )
-
             // Auth firebase
             .addFilterBefore(
                 firebaseAuthenticationFilter,
                 UsernamePasswordAuthenticationFilter.class
             );
-
         return http.build();
     }
 }

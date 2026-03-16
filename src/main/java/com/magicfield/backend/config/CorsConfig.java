@@ -13,7 +13,6 @@ public class CorsConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-
         CorsConfiguration config = new CorsConfiguration();
 
         // permitir cookies / auth headers
@@ -22,8 +21,8 @@ public class CorsConfig {
         // ORIGENES PERMITIDOS
         config.setAllowedOriginPatterns(List.of(
                 "http://localhost:3000",
-                "https://magicfield-frontend.vercel.app",
-                "https://*.vercel.app"   // preview deployments
+                "https://magicfield.vercel.app",
+                "https://*.vercel.app"
         ));
 
         // HEADERS
@@ -43,9 +42,7 @@ public class CorsConfig {
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
-
         source.registerCorsConfiguration("/**", config);
-
         return source;
     }
 }
