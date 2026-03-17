@@ -7,6 +7,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import jakarta.annotation.PostConstruct;
 
 @Service
 public class EmailService {
@@ -15,6 +16,11 @@ public class EmailService {
     private String apiKey;
 
     private final HttpClient client = HttpClient.newHttpClient();
+
+    @PostConstruct
+    public void debugEnv() {
+        System.out.println("----- RESEND_API_KEY -----: " + System.getenv("RESEND_API_KEY"));
+    }
 
     public void send(String to, String subject, String text) {
         try {
