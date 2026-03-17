@@ -19,6 +19,10 @@ public class EmailService {
     public void send(String to, String subject, String text) {
         try {
 
+            if (apiKey == null || apiKey.isBlank()) {
+                throw new IllegalStateException("RESEND_API_KEY no está configurada");
+            }
+
             String json = """
             {
               "from": "Magic Field <onboarding@resend.dev>",
@@ -44,7 +48,6 @@ public class EmailService {
                     HttpResponse.BodyHandlers.ofString()
             );
 
-            // 👇 MUY IMPORTANTE para debug
             if (response.statusCode() >= 400) {
                 throw new RuntimeException("Error enviando email: " + response.body());
             }
