@@ -73,18 +73,26 @@ public class OrderService {
         orderText.append("\nTOTAL: $").append(total);
 
         // EMAIL ADMIN
-        emailService.send(
+        try {
+            emailService.send(
                 adminEmail,
                 "Nuevo pedido recibido",
                 orderText.toString()
-        );
+            );
+        } catch (Exception e) {
+            System.err.println("Error enviando email admin: " + e.getMessage());
+        }
 
         // EMAIL CLIENTE
-        emailService.send(
+        try {
+            emailService.send(
                 request.getCustomerEmail(),
                 "Pedido confirmado",
                 "Hola " + request.getCustomerName() +
-                        "!\n\nRecibimos tu pedido correctamente.\nPronto nos comunicaremos con vos."
-        );
+                "!\n\nRecibimos tu pedido correctamente."
+            );
+        } catch (Exception e) {
+            System.err.println("Error enviando email cliente: " + e.getMessage());
+        }
     }
 }

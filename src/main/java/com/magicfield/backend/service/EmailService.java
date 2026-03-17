@@ -1,26 +1,56 @@
 package com.magicfield.backend.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 
 @Service
 public class EmailService {
 
-    @Autowired
-    private JavaMailSender mailSender;
+    @Value("${resend.api-key}")
+    private String apiKey;
 
-    public EmailService(JavaMailSender mailSender) {
-        this.mailSender = mailSender;
-    }
+    private final HttpClient client = HttpClient.newHttpClient();
 
     public void send(String to, String subject, String text) {
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(to);
-        message.setSubject(subject);
-        message.setText(text);
+        try {
 
-        mailSender.send(message);
+            String json = """
+            {
+              "from": "Magic Field <onboarding@resend.dev>",
+              "to": ["%s"],
+              "subject": "%s",
+              "text": "%s"
+            }
+            """.formatted(
+                    to,
+                    subject,
+                    text.replace("\"", "\\\"")
+            );
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create("https://api.resend.com/emails"))
+                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(json))
+                    .build();
+
+            HttpResponse<String> response = client.send(
+                    request,
+                    HttpResponse.BodyHandlers.ofString()
+            );
+
+            // 👇 MUY IMPORTANTE para debug
+            if (response.statusCode() >= 400) {
+                throw new RuntimeException("Error enviando email: " + response.body());
+            }
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error enviando email", e);
+        }
     }
 }
