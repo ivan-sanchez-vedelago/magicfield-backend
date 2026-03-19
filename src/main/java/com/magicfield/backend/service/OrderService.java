@@ -1,12 +1,12 @@
 package com.magicfield.backend.service;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import com.magicfield.backend.entity.Product;
 import com.magicfield.backend.repository.ProductRepository;
 import com.magicfield.backend.dto.CheckoutRequest;
 import com.magicfield.backend.dto.CheckoutItemRequest;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 
 @Service
@@ -80,7 +80,8 @@ public class OrderService {
                 orderText.toString()
             );
         } catch (Exception e) {
-            System.err.println("Error enviando email admin: " + e.getMessage());
+            System.err.println("Error enviando email admin");
+            e.printStackTrace();
         }
 
         // EMAIL CLIENTE
@@ -92,7 +93,8 @@ public class OrderService {
                 "!\n\nRecibimos tu pedido correctamente."
             );
         } catch (Exception e) {
-            System.err.println("Error enviando email cliente: " + e.getMessage());
+            System.err.println("Error enviando email cliente");
+            e.printStackTrace();
         }
     }
 }
