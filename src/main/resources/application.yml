@@ -38,6 +38,7 @@ spring:
 
 app:
   admin-email: ${APP_ADMIN_EMAIL}
+  email-from: ${APP_EMAIL_FROM}
 
 firebase:
   bucket: ${FIREBASE_BUCKET}
