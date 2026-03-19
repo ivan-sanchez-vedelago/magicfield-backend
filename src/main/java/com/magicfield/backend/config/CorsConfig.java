@@ -21,8 +21,10 @@ public class CorsConfig {
         // ORIGENES PERMITIDOS
         config.setAllowedOriginPatterns(List.of(
                 "http://localhost:3000",
-                "https://magicfield.vercel.app",
-                "https://*.vercel.app"
+                "http://localhost:19006", // Expo Go
+                "https://*.vercel.app",
+                "https://magicfield.com.ar",
+                "https://www.magicfield.com.ar"
         ));
 
         // HEADERS
