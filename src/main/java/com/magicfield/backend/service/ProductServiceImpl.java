@@ -14,6 +14,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -169,6 +170,7 @@ public class ProductServiceImpl implements ProductService {
     // AUTO UPDATE (cada 3 días)
     @Scheduled(cron = "0 0 3 */3 * *") // Cada 3 días a las 3 AM
     public void updatePrices() {
+        System.out.println("Iniciando actualización de precios... " + LocalDateTime.now());
         LocalDateTime limit = LocalDateTime.now().minusDays(3);
         List<Product> singles = productRepository.findSinglesNeedingUpdate(limit);
         List<Product> updated = new ArrayList<>();
@@ -195,7 +197,21 @@ public class ProductServiceImpl implements ProductService {
 
         BigDecimal withMarkup = applyMarkup(usd);
         BigDecimal rate = dollarService.getRate();
-        return withMarkup.multiply(rate);
+        BigDecimal priceArs = withMarkup.multiply(rate);
+
+        return applyRetailPricing(priceArs);
+    }
+
+    private BigDecimal applyRetailPricing(BigDecimal price) {
+        if (price == null) return BigDecimal.ZERO;
+        BigDecimal step = new BigDecimal("100");
+
+        // Dividir, redondear hacia arriba y volver a multiplicar
+        BigDecimal divided = price.divide(step, 0, RoundingMode.UP);
+        BigDecimal rounded = divided.multiply(step);
+
+        // Ajustar a .99
+        return rounded.subtract(new BigDecimal("0.01"));
     }
 
     private BigDecimal applyMarkup(BigDecimal usd) {

@@ -36,11 +36,9 @@ public class DollarService {
             System.out.println("Consultando API dolar...");
 
             Map response = restTemplate.getForObject(url, Map.class);
-            System.out.println("Response: " + response);
 
             BigDecimal mep = extractPrice(response, "mep");
             if (mep != null) {
-                System.out.println("Usando MEP: " + mep);
                 cachedRate = mep;
                 lastUpdate = LocalDateTime.now();
                 return;
@@ -48,21 +46,16 @@ public class DollarService {
 
             BigDecimal blue = extractPrice(response, "blue");
             if (blue != null) {
-                System.out.println("Usando BLUE: " + blue);
                 cachedRate = blue;
                 lastUpdate = LocalDateTime.now();
                 return;
             }
-
             throw new RuntimeException("No se pudo obtener MEP ni BLUE");
-
         } catch (Exception e) {
             e.printStackTrace();
-
             if (cachedRate == null) {
                 throw new RuntimeException("Error obteniendo tipo de cambio", e);
             }
-
             System.out.println("Usando valor cacheado: " + cachedRate);
             lastUpdate = LocalDateTime.now();
         }

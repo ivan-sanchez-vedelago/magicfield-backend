@@ -49,9 +49,6 @@ public class EmailService {
                     HttpResponse.BodyHandlers.ofString()
             );
 
-            System.out.println("RESEND STATUS: " + response.statusCode());
-            System.out.println("RESEND BODY: " + response.body());
-
             if (response.statusCode() >= 400) {
                 throw new RuntimeException("Error enviando email: " + response.body());
             }
