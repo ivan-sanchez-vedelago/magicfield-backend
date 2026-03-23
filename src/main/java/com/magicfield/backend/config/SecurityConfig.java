@@ -46,6 +46,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/orders/checkout").permitAll()
 
                 // Privados (requieren autenticación)
+                .requestMatchers(HttpMethod.POST, "/api/products").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/products/**").permitAll()
                 .requestMatchers(HttpMethod.PUT, "/api/products/**").permitAll()
                 .requestMatchers(HttpMethod.PATCH, "/api/products/**").permitAll()

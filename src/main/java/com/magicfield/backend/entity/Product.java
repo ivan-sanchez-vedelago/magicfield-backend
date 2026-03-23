@@ -40,61 +40,8 @@ public class Product {
     )
     private List<Image> images;
 
-    @OneToOne(
-        mappedBy = "product",
-        cascade = CascadeType.ALL,
-        orphanRemoval = true
-    )
-    private SingleCard singleCard;
-
-    @OneToOne(
-        mappedBy = "product",
-        cascade = CascadeType.ALL,
-        orphanRemoval = true
-    )
-    private SealedProduct sealedProduct;
-
-    @OneToOne(
-        mappedBy = "product",
-        cascade = CascadeType.ALL,
-        orphanRemoval = true
-    )
-    private OtherProduct otherProduct;
-
     public Product() {
         this.createdAt = LocalDateTime.now();
-    }
-
-    public List<Image> getImages() {
-        return images;
-    }
-
-    public void setImages(List<Image> images) {
-        this.images = images;
-    }
-
-    public SingleCard getSingleCard() {
-        return singleCard;
-    }
-
-    public void setSingleCard(SingleCard singleCard) {
-        this.singleCard = singleCard;
-    }
-
-    public SealedProduct getSealedProduct() {
-        return sealedProduct;
-    }
-
-    public void setSealedProduct(SealedProduct sealedProduct) {
-        this.sealedProduct = sealedProduct;
-    }
-
-    public OtherProduct getOtherProduct() {
-        return otherProduct;
-    }
-
-    public void setOtherProduct(OtherProduct otherProduct) {
-        this.otherProduct = otherProduct;
     }
 
     public UUID getId() {
