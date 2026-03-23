@@ -20,6 +20,10 @@ public class ProductRequest {
     @NotNull
     private String type;
 
+    // SINGLE
+    private String scryfallId;
+    private Boolean isFoil;
+
     public ProductRequest() {
     }
 
@@ -61,5 +65,21 @@ public class ProductRequest {
 
     public void setType(String type) {
         this.type = type;
+    }
+
+    public String getScryfallId() {
+        return scryfallId;
+    }
+
+    public void setScryfallId(String scryfallId) {
+        this.scryfallId = scryfallId;
+    }
+
+    public Boolean getIsFoil() {
+        return isFoil;
+    }
+
+    public void setIsFoil(Boolean isFoil) {
+        this.isFoil = isFoil;
     }
 }

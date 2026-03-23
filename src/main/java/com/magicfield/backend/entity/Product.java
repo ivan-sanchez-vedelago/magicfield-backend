@@ -33,6 +33,15 @@ public class Product {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column
+    private LocalDateTime lastPriceUpdate;
+
+    @Column
+    private String scryfallId;
+
+    @Column
+    private Boolean isFoil;
+
     @OneToMany(
         mappedBy = "product",
         cascade = CascadeType.ALL,
@@ -98,5 +107,29 @@ public class Product {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getLastPriceUpdate() {
+        return lastPriceUpdate;
+    }
+
+    public void setLastPriceUpdate(LocalDateTime lastPriceUpdate) {
+        this.lastPriceUpdate = lastPriceUpdate;
+    }
+
+    public String getScryfallId() {
+        return scryfallId;
+    }
+
+    public void setScryfallId(String scryfallId) {
+        this.scryfallId = scryfallId;
+    }
+
+    public Boolean getIsFoil() {
+        return isFoil;
+    }
+
+    public void setIsFoil(Boolean isFoil) {
+        this.isFoil = isFoil;
     }
 }

@@ -1,30 +1,34 @@
 package com.magicfield.backend.service;
 
-import com.magicfield.backend.dto.ScryfallCardResponse;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.client.RestClientException;
+
+import java.math.BigDecimal;
+import java.util.Map;
 
 @Service
 public class ScryfallService {
 
-    private static final String SCRYFALL_API_URL = "https://api.scryfall.com/cards/named";
-    private final RestTemplate restTemplate;
+    private final RestTemplate restTemplate = new RestTemplate();
 
-    public ScryfallService(RestTemplate restTemplate) {
-        this.restTemplate = restTemplate;
-    }
-
-    public ScryfallCardResponse getCardByName(String cardName) throws RuntimeException {
-        String url = SCRYFALL_API_URL + "?exact=" + encodeCardName(cardName);
+    public BigDecimal getPrice(String scryfallId, Boolean isFoil) {
         try {
-            return restTemplate.getForObject(url, ScryfallCardResponse.class);
-        } catch (RestClientException e) {
-            throw new RuntimeException("Card not found in Scryfall: " + cardName, e);
-        }
-    }
+            String url = "https://api.scryfall.com/cards/" + scryfallId;
 
-    private String encodeCardName(String cardName) {
-        return java.net.URLEncoder.encode(cardName, java.nio.charset.StandardCharsets.UTF_8);
+            Map response = restTemplate.getForObject(url, Map.class);
+            Map prices = (Map) response.get("prices");
+
+            String usd = (String) prices.get("usd");
+            String usdFoil = (String) prices.get("usd_foil");
+
+            String priceStr = (isFoil != null && isFoil) ? usdFoil : usd;
+
+            if (priceStr == null) return BigDecimal.ZERO;
+
+            return new BigDecimal(priceStr);
+
+        } catch (Exception e) {
+            return BigDecimal.ZERO;
+        }
     }
 }

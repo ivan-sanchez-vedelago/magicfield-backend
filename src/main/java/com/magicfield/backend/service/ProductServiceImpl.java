@@ -10,8 +10,12 @@ import com.magicfield.backend.service.ImageStorageService;
 import com.magicfield.backend.repository.ImageRepository;
 import com.magicfield.backend.repository.ProductRepository;
 import jakarta.transaction.Transactional;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -22,13 +26,19 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
     private final ImageStorageService imageStorageService;
     private final ImageRepository imageRepository;
+    private final ScryfallService scryfallService;
+    private final DollarService dollarService;
 
     public ProductServiceImpl(ProductRepository productRepository,
                               ImageStorageService imageStorageService,
-                              ImageRepository imageRepository) {
+                              ImageRepository imageRepository,
+                              ScryfallService scryfallService,
+                              DollarService dollarService) {
         this.productRepository = productRepository;
         this.imageStorageService = imageStorageService;
         this.imageRepository = imageRepository;
+        this.scryfallService = scryfallService;
+        this.dollarService = dollarService;
     }
 
     @Override
@@ -52,10 +62,24 @@ public class ProductServiceImpl implements ProductService {
             Product p = new Product();
             p.setName(request.getName());
             p.setDescription(request.getDescription());
-            p.setPrice(request.getPrice());
             p.setStock(request.getStock());
             ProductType typeEnum = ProductType.valueOf(request.getType().toUpperCase());
             p.setType(typeEnum);
+
+            if (typeEnum == ProductType.SINGLE) {
+                BigDecimal usd = scryfallService.getPrice(
+                    request.getScryfallId(),
+                    request.getIsFoil()
+                );
+                BigDecimal ars = convertUsdToArs(usd);
+
+                p.setPrice(ars);
+                p.setLastPriceUpdate(LocalDateTime.now());
+                p.setScryfallId(request.getScryfallId());
+                p.setIsFoil(request.getIsFoil());
+            } else {
+                p.setPrice(request.getPrice());
+            }
 
             Product saved = productRepository.save(p);
             return toResponse(saved);
@@ -140,6 +164,46 @@ public class ProductServiceImpl implements ProductService {
                 );
             }
         });
+    }
+
+    // AUTO UPDATE (cada 3 días)
+    @Scheduled(cron = "0 0 3 */3 * *") // Cada 3 días a las 3 AM
+    public void updatePrices() {
+        LocalDateTime limit = LocalDateTime.now().minusDays(3);
+        List<Product> singles = productRepository.findSinglesNeedingUpdate(limit);
+        List<Product> updated = new ArrayList<>();
+        for (Product p : singles) {
+            try {
+                BigDecimal usd = scryfallService.getPrice(
+                    p.getScryfallId(),
+                    p.getIsFoil()
+                );
+                BigDecimal ars = convertUsdToArs(usd);
+                p.setPrice(ars);
+                p.setLastPriceUpdate(LocalDateTime.now());
+
+                updated.add(p);
+            } catch (Exception e) {
+                System.err.println("Error actualizando producto " + p.getId());
+            }
+        }
+        productRepository.saveAll(updated);
+    }
+
+    private BigDecimal convertUsdToArs(BigDecimal usd) {
+        if (usd == null) return BigDecimal.ZERO;
+
+        BigDecimal withMarkup = applyMarkup(usd);
+        BigDecimal rate = dollarService.getRate();
+        return withMarkup.multiply(rate);
+    }
+
+    private BigDecimal applyMarkup(BigDecimal usd) {
+        if (usd.compareTo(new BigDecimal("10")) < 0) {
+            return usd.multiply(new BigDecimal("1.3"));
+        } else {
+            return usd.multiply(new BigDecimal("1.4"));
+        }
     }
 
     private ProductResponse toResponse(Product p) {
