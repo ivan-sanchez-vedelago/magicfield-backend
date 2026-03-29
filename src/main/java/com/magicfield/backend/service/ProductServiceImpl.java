@@ -60,6 +60,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public ProductResponse create(ProductRequest request) {
         try {
+            System.out.println("Creating product with type: " + request.getType());
             Product p = new Product();
             p.setName(request.getName());
             p.setDescription(request.getDescription());
@@ -78,6 +79,10 @@ public class ProductServiceImpl implements ProductService {
                 p.setLastPriceUpdate(LocalDateTime.now());
                 p.setScryfallId(request.getScryfallId());
                 p.setIsFoil(request.getIsFoil());
+                p.setSet(request.getSet());
+                p.setCollectorNumber(request.getCollectorNumber());
+                p.setCondition(request.getCondition());
+                p.setLanguage(request.getLanguage());
             } else {
                 p.setPrice(request.getPrice());
             }
@@ -236,6 +241,12 @@ public class ProductServiceImpl implements ProductService {
                 p.getPrice(),
                 p.getStock(),
                 p.getType() != null ? p.getType().toString() : null,
+                p.getScryfallId(),
+                p.getIsFoil(),
+                p.getSet(),
+                p.getCollectorNumber(),
+                p.getCondition(),
+                p.getLanguage(),
                 imageUrls
         );
     }

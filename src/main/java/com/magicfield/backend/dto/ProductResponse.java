@@ -12,6 +12,12 @@ public class ProductResponse {
     private BigDecimal price;
     private Integer stock;
     private String type;
+    private String scryfallId;
+    private Boolean isFoil;
+    private String set;
+    private String collectorNumber;
+    private String condition;
+    private String language;
 
     // URLs públicas (Firebase, S3, CDN, etc.)
     private List<String> imageUrls;
@@ -26,6 +32,12 @@ public class ProductResponse {
             BigDecimal price,
             Integer stock,
             String type,
+            String scryfallId,
+            Boolean isFoil,
+            String set,
+            String collectorNumber,
+            String condition,
+            String language,
             List<String> imageUrls
     ) {
         this.id = id;
@@ -34,6 +46,12 @@ public class ProductResponse {
         this.price = price;
         this.stock = stock;
         this.type = type;
+        this.scryfallId = scryfallId;
+        this.isFoil = isFoil;
+        this.set = set;
+        this.collectorNumber = collectorNumber;
+        this.condition = condition;
+        this.language = language;
         this.imageUrls = imageUrls;
     }
 
@@ -59,6 +77,30 @@ public class ProductResponse {
 
     public String getType() {
         return type;
+    }
+
+    public String getScryfallId() {
+        return scryfallId;
+    }
+
+    public Boolean getIsFoil() {
+        return isFoil;
+    }
+
+    public String getSet() {
+        return set;
+    }
+
+    public String getCollectorNumber() {
+        return collectorNumber;
+    }
+
+    public String getCondition() {
+        return condition;
+    }
+
+    public String getLanguage() {
+        return language;
     }
 
     public List<String> getImageUrls() {
@@ -87,6 +129,30 @@ public class ProductResponse {
 
     public void setType(String type) {
         this.type = type;
+    }
+
+    public void setScryfallId(String scryfallId) {
+        this.scryfallId = scryfallId;
+    }
+
+    public void setIsFoil(Boolean isFoil) {
+        this.isFoil = isFoil;
+    }
+
+    public void setSet(String set) {
+        this.set = set;
+    }
+
+    public void setCollectorNumber(String collectorNumber) {
+        this.collectorNumber = collectorNumber;
+    }
+
+    public void setCondition(String condition) {
+        this.condition = condition;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
     }
 
     public void setImageUrls(List<String> imageUrls) {

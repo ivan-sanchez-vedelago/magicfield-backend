@@ -42,6 +42,18 @@ public class Product {
     @Column
     private Boolean isFoil;
 
+    @Column
+    private String set;
+
+    @Column
+    private String collectorNumber;
+
+    @Column
+    private String condition;
+
+    @Column
+    private String language;
+
     @OneToMany(
         mappedBy = "product",
         cascade = CascadeType.ALL,
@@ -131,5 +143,45 @@ public class Product {
 
     public void setIsFoil(Boolean isFoil) {
         this.isFoil = isFoil;
+    }
+
+    public String getSet() {
+        return set;
+    }
+
+    public void setSet(String set) {
+        this.set = set;
+    }
+
+    public String getCollectorNumber() {
+        return collectorNumber;
+    }
+
+    public void setCollectorNumber(String collectorNumber) {
+        this.collectorNumber = collectorNumber;
+    }
+
+    public String getCondition() {
+        return condition;
+    }
+
+    public void setCondition(String condition) {
+        this.condition = condition;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+
+    public List<Image> getImages() {
+        return images;
+    }
+
+    public void setImages(List<Image> images) {
+        this.images = images;
     }
 }

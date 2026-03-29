@@ -23,6 +23,10 @@ public class ProductRequest {
     // SINGLE
     private String scryfallId;
     private Boolean isFoil;
+    private String set;
+    private String collectorNumber;
+    private String condition;
+    private String language;
 
     public ProductRequest() {
     }
@@ -81,5 +85,37 @@ public class ProductRequest {
 
     public void setIsFoil(Boolean isFoil) {
         this.isFoil = isFoil;
+    }
+
+    public String getSet() {
+        return set;
+    }
+
+    public void setSet(String set) {
+        this.set = set;
+    }
+
+    public String getCollectorNumber() {
+        return collectorNumber;
+    }
+
+    public void setCollectorNumber(String collectorNumber) {
+        this.collectorNumber = collectorNumber;
+    }
+
+    public String getCondition() {
+        return condition;
+    }
+
+    public void setCondition(String condition) {
+        this.condition = condition;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
     }
 }
