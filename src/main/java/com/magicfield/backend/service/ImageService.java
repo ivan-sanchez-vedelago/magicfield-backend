@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -27,6 +28,24 @@ public class ImageService {
         this.imageRepository = imageRepository;
         this.productRepository = productRepository;
         this.imageStorageService = imageStorageService;
+    }
+
+    public List<Image> getByProductId(UUID productId) {
+        return imageRepository.findByProductId(productId);
+    }
+
+    @Transactional
+    public void deleteImage(Long imageId) {
+        Image image = imageRepository.findById(imageId)
+                .orElseThrow(() -> new RuntimeException("Imagen no encontrada"));
+
+        try {
+            imageStorageService.deleteByUrl(image.getUrl());
+        } catch (Exception e) {
+            System.err.println("Error deleting image from storage: " + e.getMessage());
+        }
+
+        imageRepository.deleteById(imageId);
     }
 
     @Transactional
