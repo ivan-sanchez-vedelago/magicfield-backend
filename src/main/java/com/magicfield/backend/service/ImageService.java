@@ -2,6 +2,7 @@ package com.magicfield.backend.service;
 
 import com.magicfield.backend.entity.Image;
 import com.magicfield.backend.entity.Product;
+import com.magicfield.backend.entity.ProductType;
 import com.magicfield.backend.repository.ImageRepository;
 import com.magicfield.backend.repository.ProductRepository;
 import jakarta.transaction.Transactional;
@@ -33,6 +34,10 @@ public class ImageService {
 
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
+
+        if (product.getType() == ProductType.SINGLE) {
+            throw new IllegalArgumentException("Los productos SINGLE no aceptan imágenes: se obtienen automáticamente desde Scryfall");
+        }
 
         String url = imageStorageService.upload(productId, file);
 

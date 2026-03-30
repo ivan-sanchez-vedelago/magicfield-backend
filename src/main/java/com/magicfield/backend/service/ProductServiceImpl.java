@@ -154,22 +154,23 @@ public class ProductServiceImpl implements ProductService {
             return;
         }
 
-        // 🧨 stock llega a 0 → borrar todo
-        List<Image> images = imageRepository.findByProductId(productId);
-
-        imageRepository.deleteByProductId(productId);
+        // Stock llega a 0 → borrar producto
+        // Los SINGLE no tienen imágenes en DB (vienen de Scryfall)
+        if (product.getType() != ProductType.SINGLE) {
+            List<Image> images = imageRepository.findByProductId(productId);
+            imageRepository.deleteByProductId(productId);
+            // Firebase cleanup (fuera del control transaccional real)
+            images.forEach(image -> {
+                try {
+                    imageStorageService.deleteByUrl(image.getUrl());
+                } catch (Exception e) {
+                    System.err.println(
+                            "Failed to delete image from Firebase: " + image.getUrl()
+                    );
+                }
+            });
+        }
         productRepository.delete(product);
-
-        // 🔥 Firebase cleanup (fuera del control transaccional real)
-        images.forEach(image -> {
-            try {
-                imageStorageService.deleteByUrl(image.getUrl());
-            } catch (Exception e) {
-                System.err.println(
-                        "Failed to delete image from Firebase: " + image.getUrl()
-                );
-            }
-        });
     }
 
     // AUTO UPDATE (cada 3 días)
@@ -228,11 +229,17 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private ProductResponse toResponse(Product p) {
-        List<String> imageUrls = imageRepository
-                .findByProductIdOrderByIdAsc(p.getId())
-                .stream()
-                .map(Image::getUrl)
-                .collect(Collectors.toList());
+        List<String> imageUrls;
+
+        if (p.getType() == ProductType.SINGLE && p.getScryfallId() != null) {
+            imageUrls = scryfallService.getImageUrls(p.getScryfallId());
+        } else {
+            imageUrls = imageRepository
+                    .findByProductIdOrderByIdAsc(p.getId())
+                    .stream()
+                    .map(Image::getUrl)
+                    .collect(Collectors.toList());
+        }
 
         return new ProductResponse(
                 p.getId(),
