@@ -19,6 +19,7 @@ spring:
         jdbc:
           lob:
             non_contextual_creation: true
+          time_zone: UTC
         format_sql: true
 
   jackson:

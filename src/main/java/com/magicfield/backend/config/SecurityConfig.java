@@ -44,6 +44,7 @@ public class SecurityConfig {
                 .requestMatchers("/health").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/orders/checkout").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/banners").permitAll()
 
                 // Privados (requieren autenticación)
                 .requestMatchers(HttpMethod.POST, "/api/products").permitAll()
@@ -52,6 +53,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PATCH, "/api/products/**").permitAll()
                 .requestMatchers(HttpMethod.DELETE, "/api/products/**").permitAll()
                 .requestMatchers(HttpMethod.DELETE, "/api/images/**").permitAll()
+                .requestMatchers("/api/banners/**").permitAll()
                 
                 .requestMatchers("/api/public/**").permitAll()
                 .anyRequest().authenticated()

@@ -28,6 +28,21 @@ public class ImageStorageService {
         return blob.getMediaLink();
     }
 
+    public String uploadBanner(Long bannerId, MultipartFile file) throws IOException {
+
+        String fileName = UUID.randomUUID() + "-" + file.getOriginalFilename();
+
+        Bucket bucket = StorageClient.getInstance().bucket();
+
+        Blob blob = bucket.create(
+                "banners/" + bannerId + "/" + fileName,
+                file.getBytes(),
+                file.getContentType()
+        );
+
+        return blob.getMediaLink();
+    }
+
     public void deleteByUrl(String url) {
 
         String decoded = URLDecoder.decode(url, StandardCharsets.UTF_8);
