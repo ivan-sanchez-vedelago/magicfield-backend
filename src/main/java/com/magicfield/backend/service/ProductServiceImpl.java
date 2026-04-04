@@ -16,7 +16,6 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -60,7 +59,7 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public ProductResponse create(ProductRequest request) {
         try {
-            System.out.println("Creating product with type: " + request.getType());
+            System.out.println("Creando producto con tipo: " + request.getType());
             Product p = new Product();
             p.setName(request.getName());
             p.setDescription(request.getDescription());
@@ -132,18 +131,18 @@ public class ProductServiceImpl implements ProductService {
     public void decreaseStock(UUID productId, int quantity) {
 
         if (quantity <= 0) {
-            throw new IllegalArgumentException("Quantity must be greater than 0");
+            throw new IllegalArgumentException("La cantidad debe ser mayor a 0");
         }
 
         Product product = productRepository.findById(productId)
                 .orElseThrow(() ->
-                        new RuntimeException("Product not found with id " + productId)
+                        new RuntimeException("Producto no encontrado con id " + productId)
                 );
 
         int currentStock = product.getStock();
 
         if (currentStock < quantity) {
-            throw new IllegalStateException("Insufficient stock");
+            throw new IllegalStateException("Stock insuficiente");
         }
 
         int newStock = currentStock - quantity;
@@ -159,13 +158,13 @@ public class ProductServiceImpl implements ProductService {
         if (product.getType() != ProductType.SINGLE) {
             List<Image> images = imageRepository.findByProductId(productId);
             imageRepository.deleteByProductId(productId);
-            // Firebase cleanup (fuera del control transaccional real)
+            // Limpieza en Firebase (fuera del control transaccional real)
             images.forEach(image -> {
                 try {
                     imageStorageService.deleteByUrl(image.getUrl());
                 } catch (Exception e) {
                     System.err.println(
-                            "Failed to delete image from Firebase: " + image.getUrl()
+                            "Error al eliminar imagen de Firebase: " + image.getUrl()
                     );
                 }
             });
@@ -179,9 +178,12 @@ public class ProductServiceImpl implements ProductService {
         System.out.println("Iniciando actualización de precios... " + LocalDateTime.now());
         LocalDateTime limit = LocalDateTime.now().minusDays(3);
         List<Product> singles = productRepository.findSinglesNeedingUpdate(limit);
-        List<Product> updated = new ArrayList<>();
         for (Product p : singles) {
             try {
+                // Saltear si el producto fue eliminado mientras esperaba en cola (ej. se vendió)
+                if (!productRepository.existsById(p.getId())) {
+                    continue;
+                }
                 BigDecimal usd = scryfallService.getPrice(
                     p.getScryfallId(),
                     p.getIsFoil()
@@ -189,13 +191,11 @@ public class ProductServiceImpl implements ProductService {
                 BigDecimal ars = convertUsdToArs(usd);
                 p.setPrice(ars);
                 p.setLastPriceUpdate(LocalDateTime.now());
-
-                updated.add(p);
+                productRepository.save(p);
             } catch (Exception e) {
                 System.err.println("Error actualizando producto " + p.getId());
             }
         }
-        productRepository.saveAll(updated);
     }
 
     private BigDecimal convertUsdToArs(BigDecimal usd) {
