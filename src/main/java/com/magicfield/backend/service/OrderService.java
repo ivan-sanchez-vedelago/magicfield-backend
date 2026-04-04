@@ -1,12 +1,16 @@
 package com.magicfield.backend.service;
 
 import com.magicfield.backend.entity.Product;
+import com.magicfield.backend.entity.SalesAudit;
 import com.magicfield.backend.repository.ProductRepository;
+import com.magicfield.backend.repository.SalesAuditRepository;
 import com.magicfield.backend.dto.CheckoutRequest;
 import com.magicfield.backend.dto.CheckoutItemRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
 
 
 @Service
@@ -15,6 +19,7 @@ public class OrderService {
     private final ProductRepository productRepository;
     private final ProductService productService;
     private final EmailService emailService;
+    private final SalesAuditRepository salesAuditRepository;
 
     @Value("${app.admin-email}")
     private String adminEmail;
@@ -22,19 +27,25 @@ public class OrderService {
     public OrderService(
             ProductRepository productRepository,
             ProductService productService,
-            EmailService emailService
+            EmailService emailService,
+            SalesAuditRepository salesAuditRepository
     ) {
         this.productRepository = productRepository;
         this.productService = productService;
         this.emailService = emailService;
+        this.salesAuditRepository = salesAuditRepository;
     }
 
     @Transactional
     public void checkout(CheckoutRequest request) {
 
+        // Generar ID único para esta orden (para relacionar todos sus items)
+        UUID orderId = java.util.UUID.randomUUID();
+
         StringBuilder orderText = new StringBuilder();
 
         orderText.append("Nuevo pedido Magic Field\n\n");
+        orderText.append("ID Orden: ").append(orderId).append("\n\n");
         orderText.append("Cliente:\n");
         orderText.append(request.getCustomerName())
                  .append(" ")
@@ -68,6 +79,21 @@ public class OrderService {
 
             // DESCUESTO STOCK (usa tu servicio existente)
             productService.decreaseStock(product.getId(), item.getQuantity());
+
+            // GUARDAR AUDITORÍA DE VENTA
+            SalesAudit audit = new SalesAudit();
+            audit.setOrderId(orderId);  // ← Asocia este item con la orden
+            audit.setProductId(product.getId());
+            audit.setProductName(product.getName());
+            audit.setQuantity(item.getQuantity());
+            audit.setUnitPrice(product.getPrice());
+            audit.setSubtotal(BigDecimal.valueOf(subtotal));
+            audit.setCustomerName(request.getCustomerName());
+            audit.setCustomerLastName(request.getCustomerLastName());
+            audit.setCustomerEmail(request.getCustomerEmail());
+            audit.setCustomerPhone(request.getCustomerPhone());
+            audit.setStatus("COMPLETED");
+            salesAuditRepository.save(audit)
         }
 
         orderText.append("\nTOTAL: $").append(total);
