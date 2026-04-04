@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 
 @Service
@@ -40,7 +41,7 @@ public class OrderService {
     public void checkout(CheckoutRequest request) {
 
         // Generar ID único para esta orden (para relacionar todos sus items)
-        UUID orderId = java.util.UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
 
         StringBuilder orderText = new StringBuilder();
 
@@ -93,7 +94,7 @@ public class OrderService {
             audit.setCustomerEmail(request.getCustomerEmail());
             audit.setCustomerPhone(request.getCustomerPhone());
             audit.setStatus("COMPLETED");
-            salesAuditRepository.save(audit)
+            salesAuditRepository.save(audit);
         }
 
         orderText.append("\nTOTAL: $").append(total);
