@@ -43,7 +43,7 @@ public class SalesAudit {
     private String customerPhone;
 
     // Información de la venta
-    @Column(nullable = false, updatable = false)
+    @Column(nullable = true, updatable = false)
     private UUID orderId; // Relaciona todos los items de la misma compra
 
     @Column(nullable = false, updatable = false)
