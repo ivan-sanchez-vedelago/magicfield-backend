@@ -61,3 +61,7 @@ logging:
     root: INFO
     com.magicfield: DEBUG
     org.springframework.mail: DEBUG
+
+jwt:
+  secret: ${JWT_SECRET:MagicFieldSecretKeyChangeThisInProductionAtLeast32CharactersLong}
+  expiration: ${JWT_EXPIRATION:86400000}
