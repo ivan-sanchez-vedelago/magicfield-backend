@@ -61,7 +61,9 @@ public class AuthController {
                     userId,
                     user.getEmail(),
                     user.getName(),
-                    null // Don't send token in profile response
+                    user.getLastName(),
+                    user.getPhone(),
+                    null
             );
 
             return new ResponseEntity<>(response, HttpStatus.OK);

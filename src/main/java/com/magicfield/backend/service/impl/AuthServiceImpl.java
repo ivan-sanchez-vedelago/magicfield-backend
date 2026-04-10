@@ -48,6 +48,8 @@ public class AuthServiceImpl implements AuthService {
                 user.getId().toString(),
                 user.getEmail(),
                 user.getName(),
+                user.getLastName(),
+                user.getPhone(),
                 token
         );
     }
@@ -55,26 +57,28 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        // Check if email already exists
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new RuntimeException("El email ya está registrado");
         }
 
-        // Create new user
         User user = new User(
                 request.getEmail(),
                 request.getName(),
+                request.getLastName(),
+                request.getPhone(),
+
                 passwordEncoder.encode(request.getPassword()),
                 "ROLE_USER"
         );
 
         user = userRepository.save(user);
-
         String token = jwtTokenProvider.generateToken(user.getId(), user.getEmail());
         return new AuthResponse(
                 user.getId().toString(),
                 user.getEmail(),
                 user.getName(),
+                user.getLastName(),
+                user.getPhone(),
                 token
         );
     }

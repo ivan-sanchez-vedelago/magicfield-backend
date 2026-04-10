@@ -18,14 +18,20 @@ public class User {
     @Column(nullable = false)
     private String name;
 
+    @Column(nullable = false)
+    private String lastName;
+
+    @Column(nullable = false)
+    private Long phone;
+
     @Column(nullable = true)
     private String password; // BCrypt hashed password for local auth
 
     @Column(name = "firebase_uid", unique = true, nullable = true)
-    private String firebaseUid; // For Firebase auth (optional)
+    private String firebaseUid;
 
     @Column(nullable = false)
-    private String role; // e.g. ROLE_USER or ROLE_ADMIN
+    private String role;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -36,9 +42,11 @@ public class User {
     public User() {
     }
 
-    public User(String email, String name, String password, String role) {
+    public User(String email, String name, String lastName, Long phone, String password, String role) {
         this.email = email;
         this.name = name;
+        this.lastName = lastName;
+        this.phone = phone;
         this.password = password;
         this.role = role;
         this.createdAt = LocalDateTime.now();
@@ -72,6 +80,22 @@ public class User {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public Long getPhone() {
+        return phone;
+    }
+
+    public void setPhone(Long phone) {
+        this.phone = phone;
     }
 
     public String getPassword() {
