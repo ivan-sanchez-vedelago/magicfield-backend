@@ -11,9 +11,11 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/auth")
+@CrossOrigin(origins = "*")
 public class AuthController {
 
     private final AuthService authService;
@@ -77,6 +79,30 @@ public class AuthController {
         // Clear the auth cookie
         response.addHeader("Set-Cookie", "authToken=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict");
         return new ResponseEntity<>(HttpStatus.OK);
+    }
+
+    @DeleteMapping("/account")
+    public ResponseEntity<?> deleteAccount(@CookieValue(name = "authToken", required = false) String token, HttpServletResponse response) {
+        System.out.println("DELETE /api/auth/account - Token: " + (token != null ? "presente" : "ausente"));
+        
+        if (token == null || !jwtTokenProvider.validateToken(token)) {
+            System.err.println("Token inválido o ausente");
+            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+        }
+
+        try {
+            UUID userId = jwtTokenProvider.getUserIdFromToken(token);
+            System.out.println("UserId extraído del token: " + userId);
+            
+            authService.deleteUser(userId);
+            // Clear the auth cookie
+            response.addHeader("Set-Cookie", "authToken=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict");
+            return new ResponseEntity<>(HttpStatus.OK);
+        } catch (RuntimeException e) {
+            e.printStackTrace();
+            System.err.println("Error al eliminar cuenta: " + e.getMessage());
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
     private void setAuthCookie(HttpServletResponse response, String token) {

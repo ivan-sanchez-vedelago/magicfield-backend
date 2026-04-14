@@ -12,4 +12,4 @@ public interface AuthService {
     AuthResponse register(RegisterRequest request);
     User getUserById(UUID userId);
     User getUserByEmail(String email);
-}
+    void deleteUser(UUID userId);}

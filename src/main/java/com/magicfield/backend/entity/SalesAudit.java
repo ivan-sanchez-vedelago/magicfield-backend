@@ -47,7 +47,7 @@ public class SalesAudit {
     private UUID orderId; // Relaciona todos los items de la misma compra
 
     @Column(nullable = true)
-    private Long userId; // ID del usuario si está logueado, null si no
+    private UUID userId; // ID del usuario si está logueado, null si no
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime saleDate;
@@ -152,11 +152,11 @@ public class SalesAudit {
         this.orderId = orderId;
     }
 
-    public Long getUserId() {
+    public UUID getUserId() {
         return userId;
     }
 
-    public void setUserId(Long userId) {
+    public void setUserId(UUID userId) {
         this.userId = userId;
     }
 

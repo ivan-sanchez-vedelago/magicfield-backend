@@ -19,7 +19,7 @@ public interface SalesAuditRepository extends JpaRepository<SalesAudit, UUID> {
     /**
      * Obtener auditorías de venta por usuario ID
      */
-    List<SalesAudit> findByUserIdOrderBySaleDateDesc(Long userId);
+    List<SalesAudit> findByUserIdOrderBySaleDateDesc(UUID userId);
 
     /**
      * Obtener auditorías de venta por producto

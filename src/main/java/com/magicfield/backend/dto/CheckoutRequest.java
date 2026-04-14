@@ -8,7 +8,7 @@ public class CheckoutRequest {
     private String customerLastName;
     private String customerPhone;
     private String customerEmail;
-    private Long userId; // ID del usuario si está logueado, 0 si no
+    private String userId; // ID del usuario si está logueado, null si no
 
     private List<CheckoutItemRequest> items;
 
@@ -24,8 +24,8 @@ public class CheckoutRequest {
     public String getCustomerEmail() { return customerEmail; }
     public void setCustomerEmail(String customerEmail) { this.customerEmail = customerEmail; }
 
-    public Long getUserId() { return userId; }
-    public void setUserId(Long userId) { this.userId = userId; }
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
 
     public List<CheckoutItemRequest> getItems() { return items; }
     public void setItems(List<CheckoutItemRequest> items) { this.items = items; }

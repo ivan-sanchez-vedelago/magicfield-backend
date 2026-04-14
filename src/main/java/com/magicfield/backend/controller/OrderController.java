@@ -7,6 +7,7 @@ import com.magicfield.backend.entity.SalesAudit;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -25,7 +26,7 @@ public class OrderController {
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<SalesAudit>> getUserOrders(@PathVariable Long userId) {
+    public ResponseEntity<List<SalesAudit>> getUserOrders(@PathVariable UUID userId) {
         try {
             List<SalesAudit> orders = orderService.getUserOrders(userId);
             return new ResponseEntity<>(orders, HttpStatus.OK);

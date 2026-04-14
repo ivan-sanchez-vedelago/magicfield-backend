@@ -94,7 +94,9 @@ public class OrderService {
             audit.setCustomerLastName(request.getCustomerLastName());
             audit.setCustomerEmail(request.getCustomerEmail());
             audit.setCustomerPhone(request.getCustomerPhone());
-            audit.setUserId(request.getUserId() != null ? request.getUserId() : 0);
+            if (request.getUserId() != null && !request.getUserId().isEmpty()) {
+                audit.setUserId(UUID.fromString(request.getUserId()));
+            }
             audit.setStatus("COMPLETED");
             salesAuditRepository.save(audit);
         }
@@ -127,7 +129,7 @@ public class OrderService {
         }
     }
 
-    public List<SalesAudit> getUserOrders(Long userId) {
+    public List<SalesAudit> getUserOrders(UUID userId) {
         return salesAuditRepository.findByUserIdOrderBySaleDateDesc(userId);
     }
 }

@@ -52,6 +52,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/logout").permitAll()
+                .requestMatchers(HttpMethod.DELETE, "/api/auth/account").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/auth/profile").permitAll()
 
                 // Privados (requieren autenticación)
