@@ -3,6 +3,10 @@ package com.magicfield.backend.controller;
 import org.springframework.web.bind.annotation.*;
 import com.magicfield.backend.service.OrderService;
 import com.magicfield.backend.dto.CheckoutRequest;
+import com.magicfield.backend.entity.SalesAudit;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -18,5 +22,15 @@ public class OrderController {
     @PostMapping("/checkout")
     public void checkout(@RequestBody CheckoutRequest request) {
         orderService.checkout(request);
+    }
+
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<SalesAudit>> getUserOrders(@PathVariable Long userId) {
+        try {
+            List<SalesAudit> orders = orderService.getUserOrders(userId);
+            return new ResponseEntity<>(orders, HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 }

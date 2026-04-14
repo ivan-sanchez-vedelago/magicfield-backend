@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 
@@ -93,6 +94,7 @@ public class OrderService {
             audit.setCustomerLastName(request.getCustomerLastName());
             audit.setCustomerEmail(request.getCustomerEmail());
             audit.setCustomerPhone(request.getCustomerPhone());
+            audit.setUserId(request.getUserId() != null ? request.getUserId() : 0);
             audit.setStatus("COMPLETED");
             salesAuditRepository.save(audit);
         }
@@ -123,5 +125,9 @@ public class OrderService {
             System.err.println("Error enviando email cliente");
             e.printStackTrace();
         }
+    }
+
+    public List<SalesAudit> getUserOrders(Long userId) {
+        return salesAuditRepository.findByUserIdOrderBySaleDateDesc(userId);
     }
 }

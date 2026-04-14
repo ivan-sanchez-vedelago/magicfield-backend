@@ -17,6 +17,11 @@ public interface SalesAuditRepository extends JpaRepository<SalesAudit, UUID> {
     List<SalesAudit> findByCustomerEmail(String customerEmail);
 
     /**
+     * Obtener auditorías de venta por usuario ID
+     */
+    List<SalesAudit> findByUserIdOrderBySaleDateDesc(Long userId);
+
+    /**
      * Obtener auditorías de venta por producto
      */
     List<SalesAudit> findByProductId(UUID productId);
