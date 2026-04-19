@@ -47,7 +47,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/orders/checkout").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/orders/user/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/orders/debug/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/sales-audit/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/sales-audit").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/banners").permitAll()
 
                 // Auth endpoints (public access for login/register, profile validated in controller)
