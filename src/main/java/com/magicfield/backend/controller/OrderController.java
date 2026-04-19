@@ -26,9 +26,16 @@ public class OrderController {
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<SalesAudit>> getUserOrders(@PathVariable UUID userId) {
+    public ResponseEntity<List<SalesAudit>> getUserOrders(@PathVariable String userId) {
         try {
-            List<SalesAudit> orders = orderService.getUserOrders(userId);
+            UUID userIdUUID;
+            try {
+                userIdUUID = UUID.fromString(userId);
+            } catch (IllegalArgumentException e) {
+                return new ResponseEntity<>(List.of(), HttpStatus.OK);
+            }
+            
+            List<SalesAudit> orders = orderService.getUserOrders(userIdUUID);
             return new ResponseEntity<>(orders, HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
