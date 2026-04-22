@@ -16,7 +16,7 @@ public class JwtTokenProvider {
     @Value("${jwt.secret:your-secret-key-change-this-in-production-at-least-32-characters}")
     private String jwtSecret;
 
-    @Value("${jwt.expiration:86400000}") // 24 hours in milliseconds
+    @Value("${jwt.expiration:604800000}") // 7 days in milliseconds
     private long jwtExpirationMs;
 
     private SecretKey getSigningKey() {

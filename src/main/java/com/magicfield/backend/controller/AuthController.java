@@ -110,7 +110,7 @@ public class AuthController {
         response.addHeader(
                 "Set-Cookie",
                 String.format(
-                        "authToken=%s; Path=/; Max-Age=86400; HttpOnly; Secure; SameSite=Strict",
+                        "authToken=%s; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Strict",
                         token
                 )
         );
