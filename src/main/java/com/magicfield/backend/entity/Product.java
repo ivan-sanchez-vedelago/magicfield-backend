@@ -26,9 +26,9 @@ public class Product {
     @Column(nullable = false)
     private Integer stock;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private ProductType type;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id")
+    private Category category;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -105,12 +105,12 @@ public class Product {
         this.stock = stock;
     }
 
-    public ProductType getType() {
-        return type;
+    public Category getCategory() {
+        return category;
     }
 
-    public void setType(ProductType type) {
-        this.type = type;
+    public void setCategory(Category category) {
+        this.category = category;
     }
 
     public LocalDateTime getCreatedAt() {

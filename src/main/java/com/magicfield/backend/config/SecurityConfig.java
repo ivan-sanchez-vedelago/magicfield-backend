@@ -45,6 +45,7 @@ public class SecurityConfig {
                 // Públicos
                 .requestMatchers("/health").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/categories").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/orders/checkout").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/orders/user/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/sales-audit/**").permitAll()

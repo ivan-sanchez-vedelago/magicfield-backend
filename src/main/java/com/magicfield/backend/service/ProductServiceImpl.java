@@ -2,11 +2,12 @@ package com.magicfield.backend.service;
 
 import com.magicfield.backend.dto.ProductRequest;
 import com.magicfield.backend.dto.ProductResponse;
+import com.magicfield.backend.entity.Category;
 import com.magicfield.backend.entity.Image;
 import com.magicfield.backend.entity.Product;
-import com.magicfield.backend.entity.ProductType;
 import com.magicfield.backend.exception.ProductNotFoundException;
 import com.magicfield.backend.service.ImageStorageService;
+import com.magicfield.backend.repository.CategoryRepository;
 import com.magicfield.backend.repository.ImageRepository;
 import com.magicfield.backend.repository.ProductRepository;
 import jakarta.transaction.Transactional;
@@ -24,17 +25,20 @@ import java.util.stream.Collectors;
 public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
+    private final CategoryRepository categoryRepository;
     private final ImageStorageService imageStorageService;
     private final ImageRepository imageRepository;
     private final ScryfallService scryfallService;
     private final DollarService dollarService;
 
     public ProductServiceImpl(ProductRepository productRepository,
+                              CategoryRepository categoryRepository,
                               ImageStorageService imageStorageService,
                               ImageRepository imageRepository,
                               ScryfallService scryfallService,
                               DollarService dollarService) {
         this.productRepository = productRepository;
+        this.categoryRepository = categoryRepository;
         this.imageStorageService = imageStorageService;
         this.imageRepository = imageRepository;
         this.scryfallService = scryfallService;
@@ -64,10 +68,11 @@ public class ProductServiceImpl implements ProductService {
             p.setName(request.getName());
             p.setDescription(request.getDescription());
             p.setStock(request.getStock());
-            ProductType typeEnum = ProductType.valueOf(request.getType().toUpperCase());
-            p.setType(typeEnum);
+            Category category = categoryRepository.findByShortName(request.getType().toUpperCase())
+                    .orElseThrow(() -> new IllegalArgumentException("Tipo de producto inválido: " + request.getType()));
+            p.setCategory(category);
 
-            if (typeEnum == ProductType.SINGLE) {
+            if ("SIN".equals(category.getShortName())) {
                 BigDecimal usd = scryfallService.getPrice(
                     request.getScryfallId(),
                     request.getIsFoil()
@@ -155,7 +160,7 @@ public class ProductServiceImpl implements ProductService {
 
         // Stock llega a 0 → borrar producto
         // Los SINGLE no tienen imágenes en DB (vienen de Scryfall)
-        if (product.getType() != ProductType.SINGLE) {
+        if (product.getCategory() == null || !"SIN".equals(product.getCategory().getShortName())) {
             List<Image> images = imageRepository.findByProductId(productId);
             imageRepository.deleteByProductId(productId);
             // Limpieza en Firebase (fuera del control transaccional real)
@@ -231,7 +236,7 @@ public class ProductServiceImpl implements ProductService {
     private ProductResponse toResponse(Product p) {
         List<String> imageUrls;
 
-        if (p.getType() == ProductType.SINGLE && p.getScryfallId() != null) {
+        if (p.getCategory() != null && "SIN".equals(p.getCategory().getShortName()) && p.getScryfallId() != null) {
             imageUrls = scryfallService.getImageUrls(p.getScryfallId());
         } else {
             imageUrls = imageRepository
@@ -247,7 +252,7 @@ public class ProductServiceImpl implements ProductService {
                 p.getDescription(),
                 p.getPrice(),
                 p.getStock(),
-                p.getType() != null ? p.getType().toString() : null,
+                p.getCategory() != null ? p.getCategory().getShortName() : null,
                 p.getScryfallId(),
                 p.getIsFoil(),
                 p.getSet(),
