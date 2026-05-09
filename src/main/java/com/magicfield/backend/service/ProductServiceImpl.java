@@ -259,6 +259,7 @@ public class ProductServiceImpl implements ProductService {
                 p.getCollectorNumber(),
                 p.getCondition(),
                 p.getLanguage(),
+                p.getCategory() != null ? p.getCategory().getId() : null,
                 imageUrls
         );
     }

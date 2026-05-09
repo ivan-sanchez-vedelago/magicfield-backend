@@ -18,6 +18,7 @@ public class ProductResponse {
     private String collectorNumber;
     private String condition;
     private String language;
+    private Long categoryId;
 
     // URLs públicas (Firebase, S3, CDN, etc.)
     private List<String> imageUrls;
@@ -38,6 +39,7 @@ public class ProductResponse {
             String collectorNumber,
             String condition,
             String language,
+            Long categoryId,
             List<String> imageUrls
     ) {
         this.id = id;
@@ -52,6 +54,7 @@ public class ProductResponse {
         this.collectorNumber = collectorNumber;
         this.condition = condition;
         this.language = language;
+        this.categoryId = categoryId;
         this.imageUrls = imageUrls;
     }
 
@@ -101,6 +104,10 @@ public class ProductResponse {
 
     public String getLanguage() {
         return language;
+    }
+
+    public Long getCategoryId() {
+        return categoryId;
     }
 
     public List<String> getImageUrls() {
@@ -153,6 +160,10 @@ public class ProductResponse {
 
     public void setLanguage(String language) {
         this.language = language;
+    }
+
+    public void setCategoryId(Long categoryId) {
+        this.categoryId = categoryId;
     }
 
     public void setImageUrls(List<String> imageUrls) {
