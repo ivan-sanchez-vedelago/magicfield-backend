@@ -49,6 +49,7 @@ public class ProductServiceImpl implements ProductService {
     public List<ProductResponse> listAll() {
         return productRepository.findAll()
                 .stream()
+                .filter(p -> p.getStock() > 0)
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -57,6 +58,9 @@ public class ProductServiceImpl implements ProductService {
     public ProductResponse getById(UUID id) {
         Product p = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
+        if (p.getStock() == 0) {
+            throw new ProductNotFoundException(id);
+        }
         return toResponse(p);
     }
 
@@ -152,29 +156,8 @@ public class ProductServiceImpl implements ProductService {
 
         int newStock = currentStock - quantity;
 
-        if (newStock > 0) {
-            product.setStock(newStock);
-            productRepository.save(product);
-            return;
-        }
-
-        // Stock llega a 0 → borrar producto
-        // Los SINGLE no tienen imágenes en DB (vienen de Scryfall)
-        if (product.getCategory() == null || !"SIN".equals(product.getCategory().getShortName())) {
-            List<Image> images = imageRepository.findByProductId(productId);
-            imageRepository.deleteByProductId(productId);
-            // Limpieza en Firebase (fuera del control transaccional real)
-            images.forEach(image -> {
-                try {
-                    imageStorageService.deleteByUrl(image.getUrl());
-                } catch (Exception e) {
-                    System.err.println(
-                            "Error al eliminar imagen de Firebase: " + image.getUrl()
-                    );
-                }
-            });
-        }
-        productRepository.delete(product);
+        product.setStock(newStock);
+        productRepository.save(product);
     }
 
     // AUTO UPDATE (cada 3 días)

@@ -45,4 +45,9 @@ public interface SalesAuditRepository extends JpaRepository<SalesAudit, UUID> {
      * Obtener todos los items de una misma orden/compra
      */
     List<SalesAudit> findByOrderId(UUID orderId);
+
+    /**
+     * Verificar si existe algún item PENDING para un producto dado
+     */
+    boolean existsByProductIdAndStatus(UUID productId, String status);
 }

@@ -1,12 +1,15 @@
 package com.magicfield.backend.service;
 
+import com.magicfield.backend.entity.Image;
 import com.magicfield.backend.entity.Product;
 import com.magicfield.backend.entity.SalesAudit;
+import com.magicfield.backend.repository.ImageRepository;
 import com.magicfield.backend.repository.ProductRepository;
 import com.magicfield.backend.repository.SalesAuditRepository;
 import com.magicfield.backend.dto.CheckoutRequest;
 import com.magicfield.backend.dto.CheckoutItemRequest;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +25,8 @@ public class OrderService {
     private final ProductService productService;
     private final EmailService emailService;
     private final SalesAuditRepository salesAuditRepository;
+    private final ImageRepository imageRepository;
+    private final ImageStorageService imageStorageService;
 
     @Value("${app.admin-email}")
     private String adminEmail;
@@ -30,12 +35,16 @@ public class OrderService {
             ProductRepository productRepository,
             ProductService productService,
             EmailService emailService,
-            SalesAuditRepository salesAuditRepository
+            SalesAuditRepository salesAuditRepository,
+            ImageRepository imageRepository,
+            ImageStorageService imageStorageService
     ) {
         this.productRepository = productRepository;
         this.productService = productService;
         this.emailService = emailService;
         this.salesAuditRepository = salesAuditRepository;
+        this.imageRepository = imageRepository;
+        this.imageStorageService = imageStorageService;
     }
 
     @Transactional
@@ -97,7 +106,7 @@ public class OrderService {
             if (request.getUserId() != null && !request.getUserId().isEmpty()) {
                 audit.setUserId(UUID.fromString(request.getUserId()));
             }
-            audit.setStatus("COMPLETED");
+            audit.setStatus("PENDING");
             salesAuditRepository.save(audit);
         }
 
@@ -131,5 +140,80 @@ public class OrderService {
 
     public List<SalesAudit> getUserOrders(UUID userId) {
         return salesAuditRepository.findByUserIdOrderBySaleDateDesc(userId);
+    }
+
+    @Transactional
+    public void finalizeOrder(UUID orderId) {
+        List<SalesAudit> items = salesAuditRepository.findByOrderId(orderId);
+        if (items.isEmpty()) {
+            throw new RuntimeException("Orden no encontrada: " + orderId);
+        }
+
+        boolean allPending = items.stream().allMatch(a -> "PENDING".equals(a.getStatus()));
+        if (!allPending) {
+            throw new IllegalStateException("Solo se pueden finalizar órdenes en estado PENDING");
+        }
+
+        // Marcar todos los items como COMPLETED
+        items.forEach(a -> a.setStatus("COMPLETED"));
+        salesAuditRepository.saveAll(items);
+
+        // Eliminar productos con stock=0 que ya no tienen otros PENDING
+        items.stream()
+                .map(SalesAudit::getProductId)
+                .distinct()
+                .forEach(productId -> {
+                    productRepository.findById(productId).ifPresent(product -> {
+                        if (product.getStock() == 0
+                                && !salesAuditRepository.existsByProductIdAndStatus(productId, "PENDING")) {
+                            // Eliminar imágenes si no es SIN (los SIN usan Scryfall)
+                            if (product.getCategory() == null || !"SIN".equals(product.getCategory().getShortName())) {
+                                List<Image> images = imageRepository.findByProductId(productId);
+                                imageRepository.deleteByProductId(productId);
+                                images.forEach(image -> {
+                                    try {
+                                        imageStorageService.deleteByUrl(image.getUrl());
+                                    } catch (Exception e) {
+                                        System.err.println("Error al eliminar imagen de Firebase: " + image.getUrl());
+                                    }
+                                });
+                            }
+                            productRepository.delete(product);
+                        }
+                    });
+                });
+    }
+
+    @Transactional
+    public void cancelOrder(UUID orderId, UUID requestingUserId, boolean isAdmin) {
+        List<SalesAudit> items = salesAuditRepository.findByOrderId(orderId);
+        if (items.isEmpty()) {
+            throw new RuntimeException("Orden no encontrada: " + orderId);
+        }
+
+        boolean allPending = items.stream().allMatch(a -> "PENDING".equals(a.getStatus()));
+        if (!allPending) {
+            throw new IllegalStateException("Solo se pueden cancelar órdenes en estado PENDING");
+        }
+
+        // Verificar autorización si no es admin
+        if (!isAdmin) {
+            UUID orderUserId = items.get(0).getUserId();
+            if (orderUserId == null || !orderUserId.equals(requestingUserId)) {
+                throw new AccessDeniedException("No tenés permiso para cancelar esta orden");
+            }
+        }
+
+        // Marcar todos los items como CANCELED
+        items.forEach(a -> a.setStatus("CANCELED"));
+        salesAuditRepository.saveAll(items);
+
+        // Restaurar stock de cada producto
+        items.forEach(item -> {
+            productRepository.findById(item.getProductId()).ifPresent(product -> {
+                product.setStock(product.getStock() + item.getQuantity());
+                productRepository.save(product);
+            });
+        });
     }
 }

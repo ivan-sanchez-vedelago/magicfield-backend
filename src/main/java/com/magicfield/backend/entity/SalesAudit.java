@@ -60,7 +60,7 @@ public class SalesAudit {
 
     public SalesAudit() {
         this.saleDate = LocalDateTime.now();
-        this.status = "COMPLETED";
+        this.status = "PENDING";
     }
 
     // Getters and Setters
