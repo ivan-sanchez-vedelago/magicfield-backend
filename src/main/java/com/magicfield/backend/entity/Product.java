@@ -7,7 +7,10 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "products")
+@Table(name = "products", indexes = {
+    @Index(name = "idx_product_stock", columnList = "stock"),
+    @Index(name = "idx_product_category_id", columnList = "category_id")
+})
 public class Product {
 
     @Id

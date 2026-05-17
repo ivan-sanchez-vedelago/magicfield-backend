@@ -12,7 +12,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
@@ -20,7 +20,7 @@ spring:
           lob:
             non_contextual_creation: true
           time_zone: UTC
-        format_sql: true
+        format_sql: false
 
   jackson:
     time-zone: UTC

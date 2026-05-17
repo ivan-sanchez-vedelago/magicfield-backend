@@ -30,7 +30,7 @@ public class ProductController {
     }
 
     @GetMapping("/paged")
-    public PagedProductResponse listPaged(
+    public ResponseEntity<PagedProductResponse> listPaged(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "") String search,
@@ -40,7 +40,10 @@ public class ProductController {
         List<String> categoryList = categories.isBlank()
                 ? List.of()
                 : Arrays.asList(categories.split(","));
-        return productService.listPaged(search, categoryList, page, clampedSize);
+        PagedProductResponse result = productService.listPaged(search, categoryList, page, clampedSize);
+        return ResponseEntity.ok()
+                .header("Cache-Control", "public, max-age=60, stale-while-revalidate=120")
+                .body(result);
     }
 
     @GetMapping("/{id}")
