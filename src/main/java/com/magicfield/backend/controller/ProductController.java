@@ -1,5 +1,6 @@
 package com.magicfield.backend.controller;
 
+import com.magicfield.backend.dto.PagedProductResponse;
 import com.magicfield.backend.dto.ProductRequest;
 import com.magicfield.backend.dto.ProductResponse;
 import com.magicfield.backend.service.ProductService;
@@ -9,6 +10,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -25,6 +27,20 @@ public class ProductController {
     @GetMapping
     public List<ProductResponse> list() {
         return productService.listAll();
+    }
+
+    @GetMapping("/paged")
+    public PagedProductResponse listPaged(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "") String search,
+            @RequestParam(defaultValue = "") String categories
+    ) {
+        int clampedSize = Math.min(Math.max(size, 1), 30);
+        List<String> categoryList = categories.isBlank()
+                ? List.of()
+                : Arrays.asList(categories.split(","));
+        return productService.listPaged(search, categoryList, page, clampedSize);
     }
 
     @GetMapping("/{id}")

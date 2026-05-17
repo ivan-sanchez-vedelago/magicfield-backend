@@ -2,6 +2,7 @@ package com.magicfield.backend.service;
 
 import com.magicfield.backend.dto.ProductRequest;
 import com.magicfield.backend.dto.ProductResponse;
+import com.magicfield.backend.dto.PagedProductResponse;
 import com.magicfield.backend.entity.Category;
 import com.magicfield.backend.entity.Image;
 import com.magicfield.backend.entity.Product;
@@ -11,13 +12,18 @@ import com.magicfield.backend.repository.CategoryRepository;
 import com.magicfield.backend.repository.ImageRepository;
 import com.magicfield.backend.repository.ProductRepository;
 import jakarta.transaction.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -52,6 +58,72 @@ public class ProductServiceImpl implements ProductService {
                 .filter(p -> p.getStock() > 0)
                 .map(this::toResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public PagedProductResponse listPaged(String search, List<String> categories, int page, int size) {
+        boolean allCategories = categories == null || categories.isEmpty();
+        List<String> cats = allCategories ? List.of("") : categories;
+        String normalizedSearch = (search == null) ? "" : search.trim();
+
+        Page<Product> productPage = productRepository.findPaged(
+                normalizedSearch,
+                cats,
+                allCategories,
+                PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "name"))
+        );
+
+        // Bulk-load images for non-SIN products to eliminate N+1 queries
+        List<UUID> nonSinIds = productPage.getContent().stream()
+                .filter(p -> p.getCategory() == null || !"SIN".equals(p.getCategory().getShortName()))
+                .map(Product::getId)
+                .collect(Collectors.toList());
+
+        Map<UUID, List<String>> imagesByProduct = new HashMap<>();
+        if (!nonSinIds.isEmpty()) {
+            imageRepository.findByProductIdsOrdered(nonSinIds).stream()
+                    .collect(Collectors.groupingBy(
+                            img -> img.getProduct().getId(),
+                            Collectors.mapping(Image::getUrl, Collectors.toList())
+                    ))
+                    .forEach(imagesByProduct::put);
+        }
+
+        List<ProductResponse> content = productPage.getContent().stream()
+                .map(p -> toResponseWithImages(p, imagesByProduct))
+                .collect(Collectors.toList());
+
+        return new PagedProductResponse(
+                content,
+                productPage.getTotalElements(),
+                productPage.getTotalPages(),
+                productPage.getNumber()
+        );
+    }
+
+    private ProductResponse toResponseWithImages(Product p, Map<UUID, List<String>> imagesByProduct) {
+        List<String> imageUrls;
+        if (p.getCategory() != null && "SIN".equals(p.getCategory().getShortName()) && p.getScryfallId() != null) {
+            imageUrls = scryfallService.getImageUrls(p.getScryfallId());
+        } else {
+            imageUrls = imagesByProduct.getOrDefault(p.getId(), List.of());
+        }
+        return new ProductResponse(
+                p.getId(),
+                p.getName(),
+                p.getDescription(),
+                p.getPrice(),
+                p.getStock(),
+                p.getCategory() != null ? p.getCategory().getShortName() : null,
+                p.getScryfallId(),
+                p.getIsFoil(),
+                p.getSet(),
+                p.getCollectorNumber(),
+                p.getCondition(),
+                p.getLanguage(),
+                p.getCategory() != null ? p.getCategory().getId() : null,
+                imageUrls
+        );
     }
 
     @Override
