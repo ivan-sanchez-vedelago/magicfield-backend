@@ -165,7 +165,7 @@ public class ProductServiceImpl implements ProductService {
                 p.setCondition(request.getCondition());
                 p.setLanguage(request.getLanguage());
             } else {
-                p.setPrice(request.getPrice());
+                p.setPrice(applyRetailPricing(request.getPrice()));
             }
 
             Product saved = productRepository.save(p);
@@ -182,8 +182,12 @@ public class ProductServiceImpl implements ProductService {
 
         p.setName(request.getName());
         p.setDescription(request.getDescription());
-        p.setPrice(request.getPrice());
         p.setStock(request.getStock());
+
+        boolean isSingle = p.getCategory() != null && "SIN".equals(p.getCategory().getShortName());
+        if (!isSingle) {
+            p.setPrice(applyRetailPricing(request.getPrice()));
+        }
 
         Product saved = productRepository.save(p);
         return toResponse(saved);
