@@ -1,6 +1,7 @@
 package com.magicfield.backend.dto;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -19,6 +20,7 @@ public class ProductResponse {
     private String condition;
     private String language;
     private Long categoryId;
+    private LocalDateTime createdAt;
 
     // URLs públicas (Firebase, S3, CDN, etc.)
     private List<String> imageUrls;
@@ -40,6 +42,7 @@ public class ProductResponse {
             String condition,
             String language,
             Long categoryId,
+            LocalDateTime createdAt,
             List<String> imageUrls
     ) {
         this.id = id;
@@ -55,6 +58,7 @@ public class ProductResponse {
         this.condition = condition;
         this.language = language;
         this.categoryId = categoryId;
+        this.createdAt = createdAt;
         this.imageUrls = imageUrls;
     }
 
@@ -108,6 +112,10 @@ public class ProductResponse {
 
     public Long getCategoryId() {
         return categoryId;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
     }
 
     public List<String> getImageUrls() {
@@ -164,6 +172,10 @@ public class ProductResponse {
 
     public void setCategoryId(Long categoryId) {
         this.categoryId = categoryId;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 
     public void setImageUrls(List<String> imageUrls) {

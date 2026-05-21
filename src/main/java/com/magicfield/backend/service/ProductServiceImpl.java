@@ -122,6 +122,7 @@ public class ProductServiceImpl implements ProductService {
                 p.getCondition(),
                 p.getLanguage(),
                 p.getCategory() != null ? p.getCategory().getId() : null,
+                p.getCreatedAt(),
                 imageUrls
         );
     }
@@ -315,6 +316,7 @@ public class ProductServiceImpl implements ProductService {
                 p.getCondition(),
                 p.getLanguage(),
                 p.getCategory() != null ? p.getCategory().getId() : null,
+                p.getCreatedAt(),
                 imageUrls
         );
     }
