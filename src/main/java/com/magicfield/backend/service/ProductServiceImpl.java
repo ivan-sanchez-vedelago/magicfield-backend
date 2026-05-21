@@ -271,13 +271,17 @@ public class ProductServiceImpl implements ProductService {
 
     private BigDecimal applyRetailPricing(BigDecimal price) {
         if (price == null) return BigDecimal.ZERO;
-        BigDecimal step = new BigDecimal("100");
 
-        // Dividir, redondear hacia arriba y volver a multiplicar
+        // Piso mínimo de 1200 ARS
+        BigDecimal minPrice = new BigDecimal("1200");
+        if (price.compareTo(minPrice) < 0) {
+            price = minPrice;
+        }
+
+        // Redondeo psicológico a .99:
+        BigDecimal step = new BigDecimal("100");
         BigDecimal divided = price.divide(step, 0, RoundingMode.UP);
         BigDecimal rounded = divided.multiply(step);
-
-        // Ajustar a .99
         return rounded.subtract(new BigDecimal("0.01"));
     }
 
