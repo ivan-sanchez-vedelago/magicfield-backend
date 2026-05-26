@@ -81,13 +81,6 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- Docker Compose auto-start -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-docker-compose</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
         <!-- Automatically read .env -->
         <dependency>
             <groupId>me.paulschwarz</groupId>
