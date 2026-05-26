@@ -229,6 +229,144 @@ curl -X POST "http://localhost:8080/api/products" \
 - Excepciones globales en `exception/`
 - `@ControllerAdvice` para respuestas consistentes
 
+---
+
+## Telemetría y Observabilidad
+
+El proyecto implementa una estrategia de telemetría completa en tres capas: backend, frontend y admin. Toda la infraestructura opera en free tiers ($0/mes).
+
+### Arquitectura
+
+```
+Frontend (Vercel)              Admin (Expo)
+  │  │                           │
+  │  └── Sentry ──────────┐     │ GET /api/admin/dashboard-stats
+  │                        │     │
+  └── Vercel Analytics     │     ▼
+      + Speed Insights     │   Spring Boot Backend
+                           │     │   │
+                           │     │   ├── /actuator/prometheus → Grafana Cloud
+                           │     │   ├── /actuator/health     → Health checks
+                           │     │   └── Logback JSON         → Grafana Loki
+                           │     │
+                           └─────┴── Sentry (errores server-side)
+```
+
+---
+
+### 1. Backend — Grafana Cloud (Métricas + Logs + Trazas)
+
+**Acceso:** https://grafana.com → tu stack gratuito
+
+**Endpoints locales para verificar:**
+- `GET /actuator/health` — Estado de salud (DB, disk, etc.)
+- `GET /actuator/prometheus` — Métricas en formato Prometheus (scrape target)
+- `GET /actuator/metrics` — Lista de métricas disponibles
+
+**Métricas disponibles:**
+| Métrica | Descripción |
+|---|---|
+| `http_server_requests_seconds` | Latencia por endpoint (con percentiles) |
+| `jvm_memory_used_bytes` | Uso de memoria JVM |
+| `hikaricp_connections_active` | Conexiones activas a PostgreSQL |
+| `business_checkout_completed_total` | Checkouts exitosos |
+| `business_checkout_failed_total` | Checkouts fallidos |
+| `business_auth_failed_total` | Autenticaciones fallidas |
+| `business_external_dollar_service_seconds` | Latencia del servicio de dólar |
+| `business_external_scryfall_service_seconds` | Latencia de Scryfall |
+
+**Variables de entorno requeridas en Railway (producción):**
+```env
+# Grafana Cloud OTLP (obtener de grafana.com → Connections → OpenTelemetry)
+OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-sa-east-1.grafana.net/otlp
+OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic <base64_de_instanceId:apiKey>
+OTEL_SERVICE_NAME=magicfield-backend
+
+# Activar perfil de logging JSON en producción
+SPRING_PROFILES_ACTIVE=prod
+```
+
+**Setup Grafana Cloud (una sola vez):**
+1. Crear cuenta gratuita en https://grafana.com
+2. Ir a Connections → Add new connection → OpenTelemetry (OTLP)
+3. Copiar el endpoint y generar API key
+4. Configurar las variables de entorno en Railway
+5. Importar dashboard pre-hecho: ID `4701` (JVM Micrometer) y `11378` (Spring Boot)
+
+---
+
+### 2. Frontend — Vercel Analytics + Sentry
+
+#### Vercel Analytics (Tráfico)
+
+**Acceso:** https://vercel.com → tu proyecto → pestaña **Analytics**
+
+**Lo que muestra:**
+- Page views por ruta
+- Visitantes únicos (día/semana/mes)
+- Países, dispositivos, navegadores
+- Top referrers (de dónde llega el tráfico)
+- Core Web Vitals: LCP, CLS, FID, TTFB
+
+**Activación:** Se activa automáticamente al deployar. No requiere variables de entorno. El componente `<Analytics />` y `<SpeedInsights />` ya están en `layout.tsx`.
+
+#### Sentry (Errores y Performance)
+
+**Acceso:** https://sentry.io → tu proyecto `magicfield-frontend`
+
+**Lo que muestra:**
+- Errores agrupados con stack trace completo
+- Contexto del usuario (URL, browser, OS)
+- Breadcrumbs (últimas acciones antes del error)
+- Performance traces de server components
+- Alertas por email cuando aparece un error nuevo
+
+**Variables de entorno requeridas:**
+```env
+# En Vercel → Settings → Environment Variables
+NEXT_PUBLIC_SENTRY_DSN=https://xxxxx@o123.ingest.sentry.io/456
+SENTRY_DSN=https://xxxxx@o123.ingest.sentry.io/456
+SENTRY_ORG=tu-org
+SENTRY_PROJECT=magicfield-frontend
+SENTRY_AUTH_TOKEN=sntrys_xxxxx  # Para source maps upload
+```
+
+**Setup Sentry (una sola vez):**
+1. Crear cuenta en https://sentry.io (free: 5,000 errores/mes)
+2. Crear proyecto → Platform: Next.js
+3. Copiar el DSN
+4. Crear auth token en Settings → Auth Tokens
+5. Configurar las 4 variables en Vercel
+
+---
+
+### 3. Admin Dashboard — Métricas de Negocio
+
+**Acceso:** App admin → pantalla Dashboard (primera pantalla al abrir)
+
+**Endpoint:** `GET /api/admin/dashboard-stats`
+
+**Lo que muestra:**
+- Total productos, stock, valor del inventario, productos sin stock
+- Órdenes y revenue de hoy y esta semana
+- Estado de órdenes (pendientes/completadas/canceladas)
+- Top 5 productos más vendidos
+
+**Pull-to-refresh:** Deslizar hacia abajo para actualizar datos.
+
+---
+
+### Resumen de Accesos
+
+| Herramienta | URL | Qué ves |
+|---|---|---|
+| Grafana Cloud | grafana.com | Métricas backend, logs, trazas |
+| Vercel Analytics | vercel.com → Analytics | Tráfico del e-commerce |
+| Sentry | sentry.io | Errores frontend + backend traces |
+| Admin Dashboard | App móvil → Dashboard | KPIs de negocio |
+| Health Check | `/actuator/health` | Estado del servicio |
+| Prometheus | `/actuator/prometheus` | Métricas crudas (scrape) |
+
 ### Logging
 - Configurado para DEBUG en paquetes de la aplicación
 - Ajustar niveles en `application.yml`

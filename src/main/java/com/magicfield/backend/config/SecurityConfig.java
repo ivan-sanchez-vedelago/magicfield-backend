@@ -42,6 +42,10 @@ public class SecurityConfig {
                 // Preflight CORS
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                // Actuator & Admin Dashboard
+                .requestMatchers("/actuator/**").permitAll()
+                .requestMatchers("/api/admin/**").permitAll()
+
                 // Públicos
                 .requestMatchers("/health").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()

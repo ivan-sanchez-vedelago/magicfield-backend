@@ -65,3 +65,25 @@ logging:
 jwt:
   secret: ${JWT_SECRET:MagicFieldSecretKeyChangeThisInProductionAtLeast32CharactersLong}
   expiration: ${JWT_EXPIRATION:86400000}
+
+# --- Observability ---
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+  metrics:
+    tags:
+      application: magicfield-backend
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+
+# OpenTelemetry (set via env vars in Railway)
+# OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-sa-east-1.grafana.net/otlp
+# OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic <base64>
+# OTEL_SERVICE_NAME=magicfield-backend
