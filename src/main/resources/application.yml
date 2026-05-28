@@ -48,12 +48,6 @@ app:
 
 firebase:
   bucket: ${FIREBASE_BUCKET}
-
-vercel:
-  api:
-    token: ${VERCEL_API_TOKEN:}
-  project:
-    id: ${VERCEL_PROJECT_ID:}
   service:
     account:
       path: ${FIREBASE_SERVICE_ACCOUNT_PATH:}
