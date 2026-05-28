@@ -241,7 +241,7 @@ public class VercelAnalyticsService {
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
 
             if (response.getBody() != null && response.getBody().containsKey("data")) {
-                Map deviceData = (Map) response.getBody().get("data");
+                Map<String, Number> deviceData = (Map<String, Number>) response.getBody().get("data");
 
                 List<VercelAnalyticsDTO.DeviceDto> devices = deviceData.entrySet().stream()
                         .map(entry -> new VercelAnalyticsDTO.DeviceDto(
@@ -270,7 +270,7 @@ public class VercelAnalyticsService {
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
 
             if (response.getBody() != null && response.getBody().containsKey("data")) {
-                Map browserData = (Map) response.getBody().get("data");
+                Map<String, Number> browserData = (Map<String, Number>) response.getBody().get("data");
 
                 List<VercelAnalyticsDTO.BrowserDto> browsers = browserData.entrySet().stream()
                         .map(entry -> new VercelAnalyticsDTO.BrowserDto(
@@ -299,7 +299,7 @@ public class VercelAnalyticsService {
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
 
             if (response.getBody() != null && response.getBody().containsKey("data")) {
-                Map osData = (Map) response.getBody().get("data");
+                Map<String, Number> osData = (Map<String, Number>) response.getBody().get("data");
 
                 List<VercelAnalyticsDTO.OSDto> systems = osData.entrySet().stream()
                         .map(entry -> new VercelAnalyticsDTO.OSDto(
