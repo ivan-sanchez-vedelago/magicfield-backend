@@ -87,3 +87,10 @@ management:
 # OTEL_EXPORTER_OTLP_ENDPOINT=https://otlp-gateway-prod-sa-east-1.grafana.net/otlp
 # OTEL_EXPORTER_OTLP_HEADERS=Authorization=Basic <base64>
 # OTEL_SERVICE_NAME=magicfield-backend
+
+umami:
+  api:
+    url: ${UMAMI_API_URL:https://api.umami.is/v1}
+    key: ${UMAMI_API_KEY:}
+  website:
+    id: ${UMAMI_WEBSITE_ID:}
