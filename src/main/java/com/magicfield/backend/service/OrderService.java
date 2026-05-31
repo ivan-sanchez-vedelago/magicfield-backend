@@ -14,8 +14,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -47,6 +50,18 @@ public class OrderService {
         this.imageStorageService = imageStorageService;
     }
 
+    /** Capitaliza la primera letra de cada palabra, dejando en minúscula las preposiciones comunes. */
+    private static String toTitleCase(String input) {
+        if (input == null || input.isBlank()) return input;
+        Set<String> skipWords = Set.of("de", "del", "la", "las", "los", "el", "y", "a", "en");
+        String[] words = input.trim().toLowerCase().split("\\s+");
+        return Arrays.stream(words)
+            .map(w -> skipWords.contains(w)
+                ? w
+                : Character.toUpperCase(w.charAt(0)) + w.substring(1))
+            .collect(Collectors.joining(" "));
+    }
+
     @Transactional
     public void checkout(CheckoutRequest request) {
 
@@ -64,20 +79,21 @@ public class OrderService {
             deliveryDescription = "Retiro en Francisco Alvarez";
         } else if ("ENVIO_DOMICILIO".equals(deliveryType)) {
             deliveryDescription = "(Envío a domicilio) "
-                + request.getShippingStreet() + " " + request.getShippingStreetNumber()
-                + ", " + request.getShippingCity() + ", " + request.getShippingProvince();
+                + toTitleCase(request.getShippingStreet()) + " " + request.getShippingStreetNumber()
+                + ", " + toTitleCase(request.getShippingCity()) + ", " + toTitleCase(request.getShippingProvince());
         } else if ("ENVIO_ANDREANI".equals(deliveryType)) {
             deliveryDescription = "(Envío a sucursal Andreani) "
-                + request.getShippingStreet() + " " + request.getShippingStreetNumber()
-                + ", " + request.getShippingCity() + ", " + request.getShippingProvince();
+                + toTitleCase(request.getShippingStreet()) + " " + request.getShippingStreetNumber()
+                + ", " + toTitleCase(request.getShippingCity()) + ", " + toTitleCase(request.getShippingProvince());
         } else {
             deliveryDescription = deliveryType != null ? deliveryType : "No especificado";
         }
 
+        String clienteName = toTitleCase(request.getCustomerName()) + " " + toTitleCase(request.getCustomerLastName());
+
         orderText.append("Nuevo pedido Magic Field\n\n");
         orderText.append("ID Orden: ").append(orderId).append("\n\n");
-        orderText.append("Cliente: ")
-                 .append(request.getCustomerName()).append(" ").append(request.getCustomerLastName()).append("\n");
+        orderText.append("Cliente: ").append(clienteName).append("\n");
         orderText.append("Dirección de envío: ").append(deliveryDescription).append("\n");
         orderText.append("Código Postal: ")
                  .append(request.getShippingPostalCode() != null ? request.getShippingPostalCode() : "N/A").append("\n");
