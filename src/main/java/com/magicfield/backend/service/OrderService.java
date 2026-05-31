@@ -59,15 +59,15 @@ public class OrderService {
         String deliveryType = request.getDeliveryType();
         String deliveryDescription;
         if ("RETIRO_RAMOS".equals(deliveryType)) {
-            deliveryDescription = "Retiro en local (Ramos Mejia)";
+            deliveryDescription = "Retiro en Ramos Mejia";
         } else if ("RETIRO_FRANCISCO".equals(deliveryType)) {
-            deliveryDescription = "Retiro en local (Francisco Alvarez)";
+            deliveryDescription = "Retiro en Francisco Alvarez";
         } else if ("ENVIO_DOMICILIO".equals(deliveryType)) {
-            deliveryDescription = "Envío a domicilio: "
+            deliveryDescription = "(Envío a domicilio) "
                 + request.getShippingStreet() + " " + request.getShippingStreetNumber()
                 + ", " + request.getShippingCity() + ", " + request.getShippingProvince();
         } else if ("ENVIO_ANDREANI".equals(deliveryType)) {
-            deliveryDescription = "Envío a sucursal Andreani: "
+            deliveryDescription = "(Envío a sucursal Andreani) "
                 + request.getShippingStreet() + " " + request.getShippingStreetNumber()
                 + ", " + request.getShippingCity() + ", " + request.getShippingProvince();
         } else {
