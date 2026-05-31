@@ -148,6 +148,7 @@ public class OrderService {
             audit.setShippingCity(request.getShippingCity());
             audit.setShippingProvince(request.getShippingProvince());
             audit.setShippingPostalCode(request.getShippingPostalCode());
+            audit.setPaymentMethod(request.getPaymentMethod());
             if (request.getUserId() != null && !request.getUserId().isEmpty()) {
                 audit.setUserId(UUID.fromString(request.getUserId()));
             }
@@ -156,6 +157,9 @@ public class OrderService {
         }
 
         orderText.append("\nCosto Total: $").append(total);
+
+        String paymentLabel = "EFECTIVO".equals(request.getPaymentMethod()) ? "Efectivo" : "Transferencia";
+        orderText.append("\n\nMétodo de pago: ").append(paymentLabel);
 
         // EMAIL ADMIN
         try {

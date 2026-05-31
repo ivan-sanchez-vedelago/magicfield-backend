@@ -17,6 +17,7 @@ public class CheckoutRequest {
     private String shippingCity;
     private String shippingProvince;
     private String shippingPostalCode;
+    private String paymentMethod; // TRANSFERENCIA, EFECTIVO
 
     private List<CheckoutItemRequest> items;
 
@@ -55,6 +56,9 @@ public class CheckoutRequest {
 
     public String getShippingPostalCode() { return shippingPostalCode; }
     public void setShippingPostalCode(String shippingPostalCode) { this.shippingPostalCode = shippingPostalCode; }
+
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
 
     public List<CheckoutItemRequest> getItems() { return items; }
     public void setItems(List<CheckoutItemRequest> items) { this.items = items; }

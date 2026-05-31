@@ -80,6 +80,9 @@ public class SalesAudit {
     @Column(nullable = true)
     private String shippingPostalCode;
 
+    @Column(nullable = true)
+    private String paymentMethod;
+
     public SalesAudit() {
         this.saleDate = LocalDateTime.now();
         this.status = "PENDING";
@@ -226,4 +229,7 @@ public class SalesAudit {
 
     public String getShippingPostalCode() { return shippingPostalCode; }
     public void setShippingPostalCode(String shippingPostalCode) { this.shippingPostalCode = shippingPostalCode; }
+
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
 }
