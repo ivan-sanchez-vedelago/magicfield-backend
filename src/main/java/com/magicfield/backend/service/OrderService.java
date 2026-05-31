@@ -55,13 +55,35 @@ public class OrderService {
 
         StringBuilder orderText = new StringBuilder();
 
+        // Formatear dirección de envío
+        String deliveryType = request.getDeliveryType();
+        String deliveryDescription;
+        if ("RETIRO_RAMOS".equals(deliveryType)) {
+            deliveryDescription = "Retiro en local (Ramos Mejia)";
+        } else if ("RETIRO_FRANCISCO".equals(deliveryType)) {
+            deliveryDescription = "Retiro en local (Francisco Alvarez)";
+        } else if ("ENVIO_DOMICILIO".equals(deliveryType)) {
+            deliveryDescription = "Envío a domicilio: "
+                + request.getShippingStreet() + " " + request.getShippingStreetNumber()
+                + ", " + request.getShippingCity() + ", " + request.getShippingProvince();
+        } else if ("ENVIO_ANDREANI".equals(deliveryType)) {
+            deliveryDescription = "Envío a sucursal Andreani: "
+                + request.getShippingStreet() + " " + request.getShippingStreetNumber()
+                + ", " + request.getShippingCity() + ", " + request.getShippingProvince();
+        } else {
+            deliveryDescription = deliveryType != null ? deliveryType : "No especificado";
+        }
+
         orderText.append("Nuevo pedido Magic Field\n\n");
         orderText.append("ID Orden: ").append(orderId).append("\n\n");
-        orderText.append("Cliente:\n");
-        orderText.append(request.getCustomerName())
-                 .append(" ")
-                 .append(request.getCustomerLastName()).append("\n");
-        orderText.append("Telefono: ").append(request.getCustomerPhone()).append("\n");
+        orderText.append("Cliente: ")
+                 .append(request.getCustomerName()).append(" ").append(request.getCustomerLastName()).append("\n");
+        orderText.append("Dirección de envío: ").append(deliveryDescription).append("\n");
+        orderText.append("Código Postal: ")
+                 .append(request.getShippingPostalCode() != null ? request.getShippingPostalCode() : "N/A").append("\n");
+        orderText.append("DNI: ")
+                 .append(request.getCustomerDni() != null ? request.getCustomerDni() : "N/A").append("\n");
+        orderText.append("Teléfono: ").append(request.getCustomerPhone()).append("\n");
         orderText.append("Email: ").append(request.getCustomerEmail()).append("\n\n");
 
         orderText.append("Productos:\n");
@@ -103,6 +125,13 @@ public class OrderService {
             audit.setCustomerLastName(request.getCustomerLastName());
             audit.setCustomerEmail(request.getCustomerEmail());
             audit.setCustomerPhone(request.getCustomerPhone());
+            audit.setDeliveryType(request.getDeliveryType());
+            audit.setCustomerDni(request.getCustomerDni());
+            audit.setShippingStreet(request.getShippingStreet());
+            audit.setShippingStreetNumber(request.getShippingStreetNumber());
+            audit.setShippingCity(request.getShippingCity());
+            audit.setShippingProvince(request.getShippingProvince());
+            audit.setShippingPostalCode(request.getShippingPostalCode());
             if (request.getUserId() != null && !request.getUserId().isEmpty()) {
                 audit.setUserId(UUID.fromString(request.getUserId()));
             }
@@ -110,7 +139,7 @@ public class OrderService {
             salesAuditRepository.save(audit);
         }
 
-        orderText.append("\nTOTAL: $").append(total);
+        orderText.append("\nCosto Total: $").append(total);
 
         // EMAIL ADMIN
         try {

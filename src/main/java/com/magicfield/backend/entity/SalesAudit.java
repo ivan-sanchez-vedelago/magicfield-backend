@@ -58,6 +58,28 @@ public class SalesAudit {
     @Column(nullable = false)
     private String status; // COMPLETED, PENDING, CANCELLED
 
+    // Información de envío
+    @Column(nullable = true)
+    private String deliveryType;
+
+    @Column(nullable = true)
+    private String customerDni;
+
+    @Column(nullable = true)
+    private String shippingStreet;
+
+    @Column(nullable = true)
+    private String shippingStreetNumber;
+
+    @Column(nullable = true)
+    private String shippingCity;
+
+    @Column(nullable = true)
+    private String shippingProvince;
+
+    @Column(nullable = true)
+    private String shippingPostalCode;
+
     public SalesAudit() {
         this.saleDate = LocalDateTime.now();
         this.status = "PENDING";
@@ -183,4 +205,25 @@ public class SalesAudit {
     public void setStatus(String status) {
         this.status = status;
     }
+
+    public String getDeliveryType() { return deliveryType; }
+    public void setDeliveryType(String deliveryType) { this.deliveryType = deliveryType; }
+
+    public String getCustomerDni() { return customerDni; }
+    public void setCustomerDni(String customerDni) { this.customerDni = customerDni; }
+
+    public String getShippingStreet() { return shippingStreet; }
+    public void setShippingStreet(String shippingStreet) { this.shippingStreet = shippingStreet; }
+
+    public String getShippingStreetNumber() { return shippingStreetNumber; }
+    public void setShippingStreetNumber(String shippingStreetNumber) { this.shippingStreetNumber = shippingStreetNumber; }
+
+    public String getShippingCity() { return shippingCity; }
+    public void setShippingCity(String shippingCity) { this.shippingCity = shippingCity; }
+
+    public String getShippingProvince() { return shippingProvince; }
+    public void setShippingProvince(String shippingProvince) { this.shippingProvince = shippingProvince; }
+
+    public String getShippingPostalCode() { return shippingPostalCode; }
+    public void setShippingPostalCode(String shippingPostalCode) { this.shippingPostalCode = shippingPostalCode; }
 }
