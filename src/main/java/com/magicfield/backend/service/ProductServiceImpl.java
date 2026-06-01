@@ -61,16 +61,23 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public PagedProductResponse listPaged(String search, List<String> categories, int page, int size) {
+    public PagedProductResponse listPaged(String search, List<String> categories, int page, int size, String sort) {
         boolean allCategories = categories == null || categories.isEmpty();
         List<String> cats = allCategories ? List.of("") : categories;
         String normalizedSearch = (search == null) ? "" : search.trim();
+
+        Sort pageSort = switch (sort == null ? "" : sort) {
+            case "NAME_DESC"  -> Sort.by(Sort.Direction.DESC, "name");
+            case "PRICE_ASC"  -> Sort.by(Sort.Direction.ASC,  "price");
+            case "PRICE_DESC" -> Sort.by(Sort.Direction.DESC, "price");
+            default           -> Sort.by(Sort.Direction.ASC,  "name");
+        };
 
         Page<Product> productPage = productRepository.findPaged(
                 normalizedSearch,
                 cats,
                 allCategories,
-                PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "name"))
+                PageRequest.of(page, size, pageSort)
         );
 
         // Bulk-load images for non-SIN products to eliminate N+1 queries

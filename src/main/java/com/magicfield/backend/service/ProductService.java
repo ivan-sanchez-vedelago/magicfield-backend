@@ -10,7 +10,7 @@ import java.util.UUID;
 public interface ProductService {
     List<ProductResponse> listAll();
 
-    PagedProductResponse listPaged(String search, List<String> categories, int page, int size);
+    PagedProductResponse listPaged(String search, List<String> categories, int page, int size, String sort);
 
     ProductResponse getById(UUID id);
 

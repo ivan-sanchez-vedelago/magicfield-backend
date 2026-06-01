@@ -34,13 +34,14 @@ public class ProductController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "") String search,
-            @RequestParam(defaultValue = "") String categories
+            @RequestParam(defaultValue = "") String categories,
+            @RequestParam(defaultValue = "NAME_ASC") String sort
     ) {
         int clampedSize = Math.min(Math.max(size, 1), 30);
         List<String> categoryList = categories.isBlank()
                 ? List.of()
                 : Arrays.asList(categories.split(","));
-        PagedProductResponse result = productService.listPaged(search, categoryList, page, clampedSize);
+        PagedProductResponse result = productService.listPaged(search, categoryList, page, clampedSize, sort);
         return ResponseEntity.ok()
                 .header("Cache-Control", "public, max-age=60, stale-while-revalidate=120")
                 .body(result);
