@@ -68,7 +68,13 @@ public class OrderService {
         // Generar ID único para esta orden (para relacionar todos sus items)
         UUID orderId = UUID.randomUUID();
 
-        StringBuilder orderText = new StringBuilder();
+        StringBuilder orderTextAdmin = new StringBuilder();
+        orderTextAdmin.append("Nuevo pedido Magic Field\n\n");
+
+        StringBuilder orderTextClient = new StringBuilder();
+
+        orderTextClient.append("Hola " + request.getCustomerName() +
+            "\n¡Recibimos tu pedido correctamente! En breve nos pondremos en contacto para coordinar la entrega.\n\n");
 
         // Formatear dirección de envío
         String deliveryType = request.getDeliveryType();
@@ -91,18 +97,20 @@ public class OrderService {
 
         String clienteName = toTitleCase(request.getCustomerName()) + " " + toTitleCase(request.getCustomerLastName());
 
-        orderText.append("Nuevo pedido Magic Field\n\n");
-        orderText.append("ID Orden: ").append(orderId).append("\n\n");
-        orderText.append("Cliente: ").append(clienteName).append("\n");
-        orderText.append("Dirección de envío: ").append(deliveryDescription).append("\n");
-        orderText.append("Código Postal: ")
+        orderTextAdmin.append("ID Orden: ").append(orderId).append("\n\n");
+        orderTextAdmin.append("Cliente: ").append(clienteName).append("\n");
+        orderTextAdmin.append("Dirección de envío: ").append(deliveryDescription).append("\n");
+        orderTextAdmin.append("Código Postal: ")
                  .append(request.getShippingPostalCode() != null ? request.getShippingPostalCode() : "N/A").append("\n");
-        orderText.append("DNI: ")
+        orderTextAdmin.append("DNI: ")
                  .append(request.getCustomerDni() != null ? request.getCustomerDni() : "N/A").append("\n");
-        orderText.append("Teléfono: ").append(request.getCustomerPhone()).append("\n");
-        orderText.append("Email: ").append(request.getCustomerEmail()).append("\n\n");
+        orderTextAdmin.append("Teléfono: ").append(request.getCustomerPhone()).append("\n");
+        orderTextAdmin.append("Email: ").append(request.getCustomerEmail()).append("\n\n");
+        
+        orderTextAdmin.append("Método de pago: \n").append(toTitleCase(request.getPaymentMethod()));
 
-        orderText.append("Productos:\n");
+        orderTextAdmin.append("Productos:\n");
+        orderTextClient.append("Productos:\n");
 
         double total = 0;
 
@@ -118,7 +126,14 @@ public class OrderService {
             double subtotal = product.getPrice().intValue() * item.getQuantity();
             total += subtotal;
 
-            orderText.append("- ")
+            orderTextAdmin.append("- ")
+                    .append(product.getName())
+                    .append(" x")
+                    .append(item.getQuantity())
+                    .append(" = $")
+                    .append(subtotal)
+                    .append("\n");
+            orderTextClient.append("- ")
                     .append(product.getName())
                     .append(" x")
                     .append(item.getQuantity())
@@ -156,17 +171,17 @@ public class OrderService {
             salesAuditRepository.save(audit);
         }
 
-        orderText.append("\nCosto Total: $").append(total);
+        orderTextAdmin.append("\nCosto Total: $").append(total);
+        orderTextClient.append("\nCosto Total: $").append(total);
 
-        String paymentLabel = "EFECTIVO".equals(request.getPaymentMethod()) ? "Efectivo" : "Transferencia";
-        orderText.append("\n\nMétodo de pago: ").append(paymentLabel);
+        orderTextClient.append("\n\n¡Gracias por comprar en Magic Field!");
 
         // EMAIL ADMIN
         try {
             emailService.send(
                 adminEmail,
                 "Nuevo pedido recibido",
-                orderText.toString()
+                orderTextAdmin.toString()
             );
         } catch (Exception e) {
             System.err.println("Error enviando email admin");
@@ -178,8 +193,7 @@ public class OrderService {
             emailService.send(
                 request.getCustomerEmail(),
                 "Pedido confirmado",
-                "Hola " + request.getCustomerName() +
-                "!\n\nRecibimos tu pedido correctamente."
+                orderTextClient.toString()
             );
         } catch (Exception e) {
             System.err.println("Error enviando email cliente");
