@@ -1,15 +1,30 @@
 package com.magicfield.backend.dto;
 
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+
 import java.util.List;
 
 public class CheckoutRequest {
 
+    @NotBlank(message = "El nombre es obligatorio")
     private String customerName;
+
+    @NotBlank(message = "El apellido es obligatorio")
     private String customerLastName;
+
+    @NotBlank(message = "El teléfono es obligatorio")
     private String customerPhone;
+
+    @NotBlank(message = "El email es obligatorio")
+    @Email(message = "El email no tiene un formato válido")
     private String customerEmail;
+
     private String userId; // ID del usuario si está logueado, null si no
 
+    @NotBlank(message = "El tipo de entrega es obligatorio")
     private String deliveryType; // RETIRO_RAMOS, RETIRO_FRANCISCO, ENVIO_DOMICILIO, ENVIO_ANDREANI
     private String customerDni;
     private String shippingStreet;
@@ -19,6 +34,8 @@ public class CheckoutRequest {
     private String shippingPostalCode;
     private String paymentMethod; // TRANSFERENCIA, EFECTIVO
 
+    @NotNull(message = "Los items del pedido son obligatorios")
+    @NotEmpty(message = "El pedido debe tener al menos un item")
     private List<CheckoutItemRequest> items;
 
     public String getCustomerName() { return customerName; }

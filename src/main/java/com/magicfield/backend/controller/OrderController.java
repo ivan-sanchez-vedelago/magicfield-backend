@@ -1,5 +1,6 @@
 package com.magicfield.backend.controller;
 
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import com.magicfield.backend.service.OrderService;
 import com.magicfield.backend.dto.CheckoutRequest;
@@ -24,8 +25,16 @@ public class OrderController {
     }
 
     @PostMapping("/checkout")
-    public void checkout(@RequestBody CheckoutRequest request) {
-        orderService.checkout(request);
+    public ResponseEntity<?> checkout(@Valid @RequestBody CheckoutRequest request) {
+        try {
+            orderService.checkout(request);
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Error al procesar el pedido"));
+        }
     }
 
     @GetMapping("/user/{userId}")

@@ -43,7 +43,16 @@ public class ScryfallService {
             String url = "https://api.scryfall.com/cards/" + scryfallId;
 
             Map response = restTemplate.getForObject(url, Map.class);
+            if (response == null) {
+                log.warn("[Scryfall] getPrice retornó null para scryfallId={}", scryfallId);
+                return BigDecimal.ZERO;
+            }
+
             Map prices = (Map) response.get("prices");
+            if (prices == null) {
+                log.warn("[Scryfall] sin mapa de precios para scryfallId={}", scryfallId);
+                return BigDecimal.ZERO;
+            }
 
             String usd = (String) prices.get("usd");
             String usdFoil = (String) prices.get("usd_foil");
@@ -55,6 +64,7 @@ public class ScryfallService {
             return new BigDecimal(priceStr);
 
         } catch (Exception e) {
+            log.error("[Scryfall] error en getPrice scryfallId={}: {}", scryfallId, e.getMessage());
             return BigDecimal.ZERO;
         }
     }

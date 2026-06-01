@@ -1,5 +1,7 @@
 package com.magicfield.backend.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
@@ -12,6 +14,8 @@ import java.nio.charset.StandardCharsets;
 
 @Service
 public class ImageStorageService {
+
+    private static final Logger log = LoggerFactory.getLogger(ImageStorageService.class);
 
     public String upload(UUID productId, MultipartFile file) throws IOException {
 
@@ -46,10 +50,15 @@ public class ImageStorageService {
     public void deleteByUrl(String url) {
 
         String decoded = URLDecoder.decode(url, StandardCharsets.UTF_8);
-        String path = decoded.substring(
-                decoded.indexOf("/o/") + 3,
-                decoded.indexOf("?")
-        );
+        int startIndex = decoded.indexOf("/o/");
+        int endIndex   = decoded.indexOf("?");
+
+        if (startIndex == -1 || endIndex == -1 || endIndex <= startIndex + 3) {
+            log.warn("[Storage] URL con formato inesperado, no se puede eliminar: {}", url);
+            return;
+        }
+
+        String path = decoded.substring(startIndex + 3, endIndex);
 
         Bucket bucket = StorageClient.getInstance().bucket();
         var blob = bucket.get(path);

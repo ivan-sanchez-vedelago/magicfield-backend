@@ -2,6 +2,7 @@ package com.magicfield.backend.controller;
 
 import com.magicfield.backend.entity.SalesAudit;
 import com.magicfield.backend.repository.SalesAuditRepository;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -69,9 +70,10 @@ public class SalesAuditController {
      * Obtener una auditoría específica por ID
      */
     @GetMapping("/{id}")
-    public SalesAudit getById(@PathVariable UUID id) {
+    public ResponseEntity<SalesAudit> getById(@PathVariable UUID id) {
         return salesAuditRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Auditoría no encontrada"));
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     /**

@@ -8,6 +8,8 @@ import com.magicfield.backend.repository.ProductRepository;
 import com.magicfield.backend.repository.SalesAuditRepository;
 import com.magicfield.backend.dto.CheckoutRequest;
 import com.magicfield.backend.dto.CheckoutItemRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class OrderService {
+
+    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
     private final ProductRepository productRepository;
     private final ProductService productService;
@@ -184,8 +188,7 @@ public class OrderService {
                 orderTextAdmin.toString()
             );
         } catch (Exception e) {
-            System.err.println("Error enviando email admin");
-            e.printStackTrace();
+            log.error("[OrderService] Error enviando email admin para orderId={}: {}", orderId, e.getMessage());
         }
 
         // EMAIL CLIENTE
@@ -196,8 +199,7 @@ public class OrderService {
                 orderTextClient.toString()
             );
         } catch (Exception e) {
-            System.err.println("Error enviando email cliente");
-            e.printStackTrace();
+            log.error("[OrderService] Error enviando email cliente email={}: {}", request.getCustomerEmail(), e.getMessage());
         }
     }
 
@@ -237,7 +239,7 @@ public class OrderService {
                                     try {
                                         imageStorageService.deleteByUrl(image.getUrl());
                                     } catch (Exception e) {
-                                        System.err.println("Error al eliminar imagen de Firebase: " + image.getUrl());
+                                        log.error("[OrderService] Error al eliminar imagen de Firebase url={}: {}", image.getUrl(), e.getMessage());
                                     }
                                 });
                             }
