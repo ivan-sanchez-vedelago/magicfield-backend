@@ -12,7 +12,11 @@ public interface ProductService {
 
     PagedProductResponse listPaged(String search, List<String> categories, int page, int size, String sort);
 
+    PagedProductResponse listRestorablePaged(String search, int page, int size);
+
     ProductResponse getById(UUID id);
+
+    ProductResponse getByIdIncludingSoldOut(UUID id);
 
     ProductResponse create(ProductRequest request);
 

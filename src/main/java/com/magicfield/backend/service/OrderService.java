@@ -1,9 +1,7 @@
 package com.magicfield.backend.service;
 
-import com.magicfield.backend.entity.Image;
 import com.magicfield.backend.entity.Product;
 import com.magicfield.backend.entity.SalesAudit;
-import com.magicfield.backend.repository.ImageRepository;
 import com.magicfield.backend.repository.ProductRepository;
 import com.magicfield.backend.repository.SalesAuditRepository;
 import com.magicfield.backend.dto.CheckoutRequest;
@@ -32,8 +30,6 @@ public class OrderService {
     private final ProductService productService;
     private final EmailService emailService;
     private final SalesAuditRepository salesAuditRepository;
-    private final ImageRepository imageRepository;
-    private final ImageStorageService imageStorageService;
 
     @Value("${app.admin-email}")
     private String adminEmail;
@@ -42,16 +38,12 @@ public class OrderService {
             ProductRepository productRepository,
             ProductService productService,
             EmailService emailService,
-            SalesAuditRepository salesAuditRepository,
-            ImageRepository imageRepository,
-            ImageStorageService imageStorageService
+            SalesAuditRepository salesAuditRepository
     ) {
         this.productRepository = productRepository;
         this.productService = productService;
         this.emailService = emailService;
         this.salesAuditRepository = salesAuditRepository;
-        this.imageRepository = imageRepository;
-        this.imageStorageService = imageStorageService;
     }
 
     /** Capitaliza la primera letra de cada palabra, dejando en minúscula las preposiciones comunes. */
@@ -223,30 +215,8 @@ public class OrderService {
         items.forEach(a -> a.setStatus("COMPLETED"));
         salesAuditRepository.saveAll(items);
 
-        // Eliminar productos con stock=0 que ya no tienen otros PENDING
-        items.stream()
-                .map(SalesAudit::getProductId)
-                .distinct()
-                .forEach(productId -> {
-                    productRepository.findById(productId).ifPresent(product -> {
-                        if (product.getStock() == 0
-                                && !salesAuditRepository.existsByProductIdAndStatus(productId, "PENDING")) {
-                            // Eliminar imágenes si no es SIN (los SIN usan Scryfall)
-                            if (product.getCategory() == null || !"SIN".equals(product.getCategory().getShortName())) {
-                                List<Image> images = imageRepository.findByProductId(productId);
-                                imageRepository.deleteByProductId(productId);
-                                images.forEach(image -> {
-                                    try {
-                                        imageStorageService.deleteByUrl(image.getUrl());
-                                    } catch (Exception e) {
-                                        log.error("[OrderService] Error al eliminar imagen de Firebase url={}: {}", image.getUrl(), e.getMessage());
-                                    }
-                                });
-                            }
-                            productRepository.delete(product);
-                        }
-                    });
-                });
+        // Los productos que hayan quedado en stock=0 no se eliminan: quedan
+        // ocultos de las pantallas normales y pueden restaurarse desde admin.
     }
 
     @Transactional

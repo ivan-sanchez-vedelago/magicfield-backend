@@ -47,9 +47,26 @@ public class ProductController {
                 .body(result);
     }
 
+    @GetMapping("/restorable")
+    public ResponseEntity<PagedProductResponse> listRestorable(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "") String search
+    ) {
+        int clampedSize = Math.min(Math.max(size, 1), 30);
+        PagedProductResponse result = productService.listRestorablePaged(search, page, clampedSize);
+        return ResponseEntity.ok(result);
+    }
+
     @GetMapping("/{id}")
     public ProductResponse getById(@PathVariable UUID id) {
         return productService.getById(id);
+    }
+
+    // Variante para admin: no oculta productos agotados (stock = 0), usada para restaurarlos.
+    @GetMapping("/{id}/admin")
+    public ProductResponse getByIdForAdmin(@PathVariable UUID id) {
+        return productService.getByIdIncludingSoldOut(id);
     }
 
     @PostMapping

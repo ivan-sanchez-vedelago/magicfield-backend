@@ -45,4 +45,36 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
         @Param("allCategories") boolean allCategories,
         Pageable pageable
     );
+
+    // Productos agotados (stock = 0) que ya no tienen ventas PENDING asociadas:
+    // candidatos a restaurar desde el admin.
+    // Excluye singles (SIN): sus datos/precio vienen de Scryfall y no tiene sentido restaurarlos manualmente.
+    @Query(value = """
+        SELECT p FROM Product p
+        LEFT JOIN FETCH p.category c
+        WHERE p.stock = 0
+        AND (c IS NULL OR c.shortName <> 'SIN')
+        AND NOT EXISTS (
+            SELECT 1 FROM SalesAudit sa
+            WHERE sa.productId = p.id AND sa.status = 'PENDING'
+        )
+        AND (:search = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%'))
+             OR (p.description IS NOT NULL AND LOWER(p.description) LIKE LOWER(CONCAT('%', :search, '%'))))
+    """,
+    countQuery = """
+        SELECT COUNT(p) FROM Product p
+        LEFT JOIN p.category c
+        WHERE p.stock = 0
+        AND (c IS NULL OR c.shortName <> 'SIN')
+        AND NOT EXISTS (
+            SELECT 1 FROM SalesAudit sa
+            WHERE sa.productId = p.id AND sa.status = 'PENDING'
+        )
+        AND (:search = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%'))
+             OR (p.description IS NOT NULL AND LOWER(p.description) LIKE LOWER(CONCAT('%', :search, '%'))))
+    """)
+    Page<Product> findRestorablePaged(
+        @Param("search") String search,
+        Pageable pageable
+    );
 }

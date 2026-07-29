@@ -135,12 +135,40 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    public PagedProductResponse listRestorablePaged(String search, int page, int size) {
+        String normalizedSearch = (search == null) ? "" : search.trim();
+
+        Page<Product> productPage = productRepository.findRestorablePaged(
+                normalizedSearch,
+                PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"))
+        );
+
+        List<ProductResponse> content = productPage.getContent().stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+
+        return new PagedProductResponse(
+                content,
+                productPage.getTotalElements(),
+                productPage.getTotalPages(),
+                productPage.getNumber()
+        );
+    }
+
+    @Override
     public ProductResponse getById(UUID id) {
         Product p = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
         if (p.getStock() == 0) {
             throw new ProductNotFoundException(id);
         }
+        return toResponse(p);
+    }
+
+    @Override
+    public ProductResponse getByIdIncludingSoldOut(UUID id) {
+        Product p = productRepository.findById(id)
+                .orElseThrow(() -> new ProductNotFoundException(id));
         return toResponse(p);
     }
 
