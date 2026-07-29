@@ -1,5 +1,7 @@
 package com.magicfield.backend.controller;
 
+import com.magicfield.backend.dto.AvailabilityCheckRequest;
+import com.magicfield.backend.dto.AvailabilityCheckResponse;
 import com.magicfield.backend.dto.PagedProductResponse;
 import com.magicfield.backend.dto.ProductRequest;
 import com.magicfield.backend.dto.ProductResponse;
@@ -45,6 +47,14 @@ public class ProductController {
         return ResponseEntity.ok()
                 .header("Cache-Control", "public, max-age=60, stale-while-revalidate=120")
                 .body(result);
+    }
+
+    // Revalida stock/existencia de los items del carrito antes de avanzar a datos de envío o finalizar la compra.
+    @PostMapping("/check-availability")
+    public AvailabilityCheckResponse checkAvailability(
+            @Valid @RequestBody AvailabilityCheckRequest request
+    ) {
+        return productService.checkAvailability(request);
     }
 
     @GetMapping("/restorable")

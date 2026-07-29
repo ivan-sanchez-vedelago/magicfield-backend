@@ -1,5 +1,9 @@
 package com.magicfield.backend.service;
 
+import com.magicfield.backend.dto.AvailabilityCheckRequest;
+import com.magicfield.backend.dto.AvailabilityCheckResponse;
+import com.magicfield.backend.dto.CheckoutItemRequest;
+import com.magicfield.backend.dto.ProductAvailabilityResult;
 import com.magicfield.backend.dto.ProductRequest;
 import com.magicfield.backend.dto.ProductResponse;
 import com.magicfield.backend.dto.PagedProductResponse;
@@ -49,6 +53,37 @@ public class ProductServiceImpl implements ProductService {
         this.imageRepository = imageRepository;
         this.scryfallService = scryfallService;
         this.dollarService = dollarService;
+    }
+
+    @Override
+    public AvailabilityCheckResponse checkAvailability(AvailabilityCheckRequest request) {
+        List<ProductAvailabilityResult> results = request.getItems().stream()
+                .map(this::checkItemAvailability)
+                .collect(Collectors.toList());
+
+        boolean allAvailable = results.stream().allMatch(ProductAvailabilityResult::isSufficient);
+
+        return new AvailabilityCheckResponse(allAvailable, results);
+    }
+
+    private ProductAvailabilityResult checkItemAvailability(CheckoutItemRequest item) {
+        return productRepository.findById(item.getProductId())
+                .map(p -> new ProductAvailabilityResult(
+                        p.getId(),
+                        true,
+                        p.getName(),
+                        p.getStock(),
+                        item.getQuantity(),
+                        p.getStock() >= item.getQuantity()
+                ))
+                .orElseGet(() -> new ProductAvailabilityResult(
+                        item.getProductId(),
+                        false,
+                        null,
+                        0,
+                        item.getQuantity(),
+                        false
+                ));
     }
 
     @Override
