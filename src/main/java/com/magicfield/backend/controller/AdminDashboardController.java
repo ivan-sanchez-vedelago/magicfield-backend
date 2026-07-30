@@ -3,7 +3,7 @@ package com.magicfield.backend.controller;
 import com.magicfield.backend.dto.DashboardStatsResponse;
 import com.magicfield.backend.repository.ProductRepository;
 import com.magicfield.backend.repository.SalesAuditRepository;
-import com.magicfield.backend.service.UmamiAnalyticsService;
+import com.magicfield.backend.service.AnalyticsService;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -15,14 +15,14 @@ public class AdminDashboardController {
 
     private final SalesAuditRepository salesAuditRepository;
     private final ProductRepository productRepository;
-    private final UmamiAnalyticsService umamiAnalyticsService;
+    private final AnalyticsService analyticsService;
 
     public AdminDashboardController(SalesAuditRepository salesAuditRepository,
                                     ProductRepository productRepository,
-                                    UmamiAnalyticsService umamiAnalyticsService) {
+                                    AnalyticsService analyticsService) {
         this.salesAuditRepository = salesAuditRepository;
         this.productRepository = productRepository;
-        this.umamiAnalyticsService = umamiAnalyticsService;
+        this.analyticsService = analyticsService;
     }
 
     @GetMapping("/dashboard-stats")
@@ -47,7 +47,7 @@ public class AdminDashboardController {
         stats.setCompletedOrders(salesAuditRepository.countDistinctOrdersByStatus("COMPLETED"));
         stats.setCancelledOrders(salesAuditRepository.countDistinctOrdersByStatus("CANCELLED"));
 
-        stats.setUmamiAnalytics(umamiAnalyticsService.getAnalytics(period));
+        stats.setSiteAnalytics(analyticsService.getAnalytics(period));
         stats.setPeriod(period);
 
         return stats;

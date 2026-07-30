@@ -9,7 +9,7 @@ public class DashboardStatsResponse {
     private long pendingOrders;
     private long completedOrders;
     private long cancelledOrders;
-    private UmamiAnalyticsDTO umamiAnalytics;
+    private SiteAnalyticsDTO siteAnalytics;
     private String period;
 
     public long getTotalProducts() { return totalProducts; }
@@ -27,8 +27,8 @@ public class DashboardStatsResponse {
     public long getCancelledOrders() { return cancelledOrders; }
     public void setCancelledOrders(long cancelledOrders) { this.cancelledOrders = cancelledOrders; }
 
-    public UmamiAnalyticsDTO getUmamiAnalytics() { return umamiAnalytics; }
-    public void setUmamiAnalytics(UmamiAnalyticsDTO umamiAnalytics) { this.umamiAnalytics = umamiAnalytics; }
+    public SiteAnalyticsDTO getSiteAnalytics() { return siteAnalytics; }
+    public void setSiteAnalytics(SiteAnalyticsDTO siteAnalytics) { this.siteAnalytics = siteAnalytics; }
 
     public String getPeriod() { return period; }
     public void setPeriod(String period) { this.period = period; }

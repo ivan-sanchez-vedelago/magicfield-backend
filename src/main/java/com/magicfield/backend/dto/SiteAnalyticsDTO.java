@@ -2,7 +2,7 @@ package com.magicfield.backend.dto;
 
 import java.util.List;
 
-public class UmamiAnalyticsDTO {
+public class SiteAnalyticsDTO {
 
     public static class MetricItem {
         private String x;
@@ -30,6 +30,14 @@ public class UmamiAnalyticsDTO {
     private List<MetricItem> browsers;
     private List<MetricItem> devices;
     private List<MetricItem> operatingSystems;
+    private boolean available = true;
+    private String unavailableReason;
+
+    public boolean isAvailable() { return available; }
+    public void setAvailable(boolean available) { this.available = available; }
+
+    public String getUnavailableReason() { return unavailableReason; }
+    public void setUnavailableReason(String unavailableReason) { this.unavailableReason = unavailableReason; }
 
     public long getPageViews() { return pageViews; }
     public void setPageViews(long pageViews) { this.pageViews = pageViews; }
