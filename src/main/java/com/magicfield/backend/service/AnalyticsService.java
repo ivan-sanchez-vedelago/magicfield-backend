@@ -4,16 +4,23 @@ import com.magicfield.backend.dto.AnalyticsEventRequest;
 import com.magicfield.backend.dto.SiteAnalyticsDTO;
 import com.magicfield.backend.entity.AnalyticsEvent;
 import com.magicfield.backend.repository.AnalyticsEventRepository;
+import com.magicfield.backend.repository.CategoryRepository;
+import com.magicfield.backend.repository.ProductRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -35,9 +42,15 @@ public class AnalyticsService {
     private static final long RETENTION_DAYS = 400;
 
     private final AnalyticsEventRepository repository;
+    private final ProductRepository productRepository;
+    private final CategoryRepository categoryRepository;
 
-    public AnalyticsService(AnalyticsEventRepository repository) {
+    public AnalyticsService(AnalyticsEventRepository repository,
+                             ProductRepository productRepository,
+                             CategoryRepository categoryRepository) {
         this.repository = repository;
+        this.productRepository = productRepository;
+        this.categoryRepository = categoryRepository;
     }
 
     public void recordEvent(AnalyticsEventRequest request) {
@@ -73,7 +86,7 @@ public class AnalyticsService {
         dto.setSessions(totalSessions);
         dto.setBounceRate(totalSessions > 0 ? (double) bounces / totalSessions * 100 : 0);
 
-        dto.setTopPages(toMetricItems(repository.findTopPaths(since)));
+        dto.setTopPages(toHumanizedTopPages(repository.findTopPaths(since)));
         dto.setReferrers(toMetricItems(repository.findTopReferrers(since)));
         dto.setCountries(toMetricItems(repository.findTopCountries(since)));
         dto.setDevices(toMetricItems(repository.findDeviceBreakdown(since)));
@@ -91,6 +104,94 @@ public class AnalyticsService {
             items.add(new SiteAnalyticsDTO.MetricItem(x, y));
         }
         return items;
+    }
+
+    // --- "Páginas más visitadas": traduce URLs crudas a descripciones en lenguaje natural ---
+    // Solo se resuelve sobre el top 10 ya agrupado (no en cada evento), así no le pega a la
+    // base de productos/categorías en cada pageview, solo cuando se abre el dashboard.
+
+    private static final Map<String, String> STATIC_PAGE_LABELS = Map.ofEntries(
+            Map.entry("/", "Inicio"),
+            Map.entry("/cart", "Carrito"),
+            Map.entry("/checkout", "Checkout"),
+            Map.entry("/checkout/success", "Compra exitosa"),
+            Map.entry("/auth", "Autenticación"),
+            Map.entry("/auth/login", "Login"),
+            Map.entry("/auth/register", "Registro"),
+            Map.entry("/perfil", "Perfil")
+    );
+
+    private static final Pattern PRODUCT_DETAIL_PATTERN =
+            Pattern.compile("^/products/([0-9a-fA-F-]{36})$");
+
+    private List<SiteAnalyticsDTO.MetricItem> toHumanizedTopPages(List<Object[]> rows) {
+        List<SiteAnalyticsDTO.MetricItem> items = new ArrayList<>();
+        for (Object[] row : rows) {
+            String rawPath = String.valueOf(row[0]);
+            int count = ((Number) row[1]).intValue();
+            items.add(new SiteAnalyticsDTO.MetricItem(humanizePath(rawPath), count));
+        }
+        return items;
+    }
+
+    private String humanizePath(String rawPath) {
+        String path = rawPath;
+        String query = null;
+        int qIdx = rawPath.indexOf('?');
+        if (qIdx >= 0) {
+            path = rawPath.substring(0, qIdx);
+            query = rawPath.substring(qIdx + 1);
+        }
+
+        Matcher productMatch = PRODUCT_DETAIL_PATTERN.matcher(path);
+        if (productMatch.matches()) {
+            try {
+                UUID productId = UUID.fromString(productMatch.group(1));
+                return productRepository.findById(productId)
+                        .map(p -> "Producto: " + p.getName())
+                        .orElse("Producto (eliminado)");
+            } catch (IllegalArgumentException e) {
+                return rawPath;
+            }
+        }
+
+        if ("/products".equals(path)) {
+            Map<String, String> params = parseQuery(query);
+            String category = params.get("category");
+            if (category != null && !category.isBlank()) {
+                String categoryName = categoryRepository.findByShortName(category)
+                        .map(c -> c.getName())
+                        .orElse(category);
+                return "Productos: " + categoryName;
+            }
+            if (params.containsKey("search")) {
+                return "Búsqueda de productos";
+            }
+            return "Catálogo de productos";
+        }
+
+        return STATIC_PAGE_LABELS.getOrDefault(path, path);
+    }
+
+    private Map<String, String> parseQuery(String query) {
+        Map<String, String> params = new LinkedHashMap<>();
+        if (query == null || query.isBlank()) return params;
+        for (String pair : query.split("&")) {
+            if (pair.isBlank()) continue;
+            int eq = pair.indexOf('=');
+            String key = eq >= 0 ? pair.substring(0, eq) : pair;
+            String value = eq >= 0 ? pair.substring(eq + 1) : "";
+            params.put(decode(key), decode(value));
+        }
+        return params;
+    }
+
+    private String decode(String value) {
+        try {
+            return URLDecoder.decode(value, StandardCharsets.UTF_8.name());
+        } catch (UnsupportedEncodingException e) {
+            return value;
+        }
     }
 
     private long periodToSeconds(String period) {
