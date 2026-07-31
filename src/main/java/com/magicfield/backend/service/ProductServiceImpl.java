@@ -3,6 +3,8 @@ package com.magicfield.backend.service;
 import com.magicfield.backend.dto.AvailabilityCheckRequest;
 import com.magicfield.backend.dto.AvailabilityCheckResponse;
 import com.magicfield.backend.dto.CheckoutItemRequest;
+import com.magicfield.backend.dto.CsvImportResult;
+import com.magicfield.backend.dto.CsvImportRowError;
 import com.magicfield.backend.dto.ProductAvailabilityResult;
 import com.magicfield.backend.dto.ProductRequest;
 import com.magicfield.backend.dto.ProductResponse;
@@ -16,23 +18,37 @@ import com.magicfield.backend.repository.CategoryRepository;
 import com.magicfield.backend.repository.ImageRepository;
 import com.magicfield.backend.repository.ProductRepository;
 import jakarta.transaction.Transactional;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 public class ProductServiceImpl implements ProductService {
+
+    private static final Logger log = LoggerFactory.getLogger(ProductServiceImpl.class);
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
@@ -305,6 +321,190 @@ public class ProductServiceImpl implements ProductService {
 
         product.setStock(newStock);
         productRepository.save(product);
+    }
+
+    @Override
+    @Transactional
+    public CsvImportResult importSinglesFromCsv(MultipartFile file) throws IOException {
+        Category singleCategory = categoryRepository.findByShortName("SIN")
+                .orElseThrow(() -> new IllegalStateException("No existe la categoría SIN"));
+
+        List<CsvImportRowError> errors = new ArrayList<>();
+        // Dedup dentro del mismo archivo: mismo scryfallId + foil -> se suman las cantidades.
+        Map<String, ParsedSingleRow> byKey = new LinkedHashMap<>();
+        int totalRows = 0;
+
+        try (
+                InputStreamReader reader = new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8);
+                CSVParser parser = CSVFormat.DEFAULT.builder()
+                        .setHeader()
+                        .setSkipHeaderRecord(true)
+                        .setTrim(true)
+                        .setIgnoreSurroundingSpaces(true)
+                        .build()
+                        .parse(reader)
+        ) {
+            for (CSVRecord record : parser) {
+                totalRows++;
+                int fileLine = (int) record.getRecordNumber() + 1; // +1 por la fila de encabezado
+                String cardName = safeGet(record, "Name");
+                try {
+                    ParsedSingleRow parsed = parseSingleRow(record);
+                    String key = parsed.scryfallId() + ":" + parsed.isFoil();
+                    byKey.merge(key, parsed, (existing, incoming) -> existing.withAddedQuantity(incoming.quantity()));
+                } catch (IllegalArgumentException e) {
+                    errors.add(new CsvImportRowError(fileLine, cardName, e.getMessage()));
+                }
+            }
+        }
+
+        int created = 0;
+        int updatedExisting = 0;
+
+        for (ParsedSingleRow row : byKey.values()) {
+            var existing = productRepository.findByScryfallIdAndIsFoil(row.scryfallId(), row.isFoil());
+            if (existing.isPresent()) {
+                Product product = existing.get();
+                product.setStock(product.getStock() + row.quantity());
+                productRepository.save(product);
+                updatedExisting++;
+            } else {
+                Product product = new Product();
+                product.setName(row.name());
+                product.setDescription("");
+                product.setStock(row.quantity());
+                product.setCategory(singleCategory);
+                product.setScryfallId(row.scryfallId());
+                product.setIsFoil(row.isFoil());
+                product.setSet(row.setName());
+                product.setCollectorNumber(row.collectorNumber());
+                product.setCondition(row.condition());
+                product.setLanguage(row.language());
+                product.setPrice(convertUsdToArs(row.purchaseUsd()));
+                product.setLastPriceUpdate(LocalDateTime.now());
+                productRepository.save(product);
+                created++;
+            }
+        }
+
+        log.info("[CSV Import] {} filas, {} creados, {} actualizados, {} errores",
+                totalRows, created, updatedExisting, errors.size());
+
+        return new CsvImportResult(totalRows, created, updatedExisting, errors);
+    }
+
+    private record ParsedSingleRow(
+            String name, String setName, String collectorNumber, boolean isFoil,
+            int quantity, BigDecimal purchaseUsd, String condition, String language,
+            String scryfallId
+    ) {
+        ParsedSingleRow withAddedQuantity(int extra) {
+            return new ParsedSingleRow(name, setName, collectorNumber, isFoil,
+                    quantity + extra, purchaseUsd, condition, language, scryfallId);
+        }
+    }
+
+    // Exige que el CSV (exportado por ManaBox) traiga el Scryfall ID de cada carta:
+    // es el identificador único de esa impresión exacta, así que no hace falta
+    // consultar la API de Scryfall para "encontrar"/verificar la carta.
+    private ParsedSingleRow parseSingleRow(CSVRecord record) {
+        String name = requireNonBlank(record, "Name");
+        String setName = requireNonBlank(record, "Set name");
+        String collectorNumber = requireNonBlank(record, "Collector number");
+
+        String foilRaw = requireNonBlank(record, "Foil");
+        boolean isFoil;
+        if (foilRaw.equalsIgnoreCase("foil")) {
+            isFoil = true;
+        } else if (foilRaw.equalsIgnoreCase("normal")) {
+            isFoil = false;
+        } else {
+            throw new IllegalArgumentException("Valor de 'Foil' inválido: " + foilRaw);
+        }
+
+        String scryfallIdRaw = requireNonBlank(record, "Scryfall ID");
+        UUID scryfallUuid;
+        try {
+            scryfallUuid = UUID.fromString(scryfallIdRaw);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Scryfall ID inválido: " + scryfallIdRaw);
+        }
+
+        int quantity;
+        try {
+            quantity = Integer.parseInt(requireNonBlank(record, "Quantity"));
+            if (quantity <= 0) throw new NumberFormatException();
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Cantidad inválida");
+        }
+
+        String currency = requireNonBlank(record, "Purchase price currency");
+        if (!currency.equalsIgnoreCase("USD")) {
+            throw new IllegalArgumentException("Moneda no soportada: " + currency + " (solo USD)");
+        }
+
+        BigDecimal purchaseUsd;
+        try {
+            purchaseUsd = new BigDecimal(requireNonBlank(record, "Purchase price"));
+            if (purchaseUsd.compareTo(BigDecimal.ZERO) <= 0) throw new NumberFormatException();
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Precio de compra inválido");
+        }
+
+        String condition = normalizeCondition(requireNonBlank(record, "Condition"));
+        String language = normalizeLanguage(requireNonBlank(record, "Language"));
+
+        return new ParsedSingleRow(name, setName, collectorNumber, isFoil, quantity,
+                purchaseUsd, condition, language, scryfallUuid.toString());
+    }
+
+    private String requireNonBlank(CSVRecord record, String column) {
+        if (!record.isMapped(column)) {
+            throw new IllegalArgumentException("Falta la columna '" + column + "' en el CSV");
+        }
+        String value = record.get(column);
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Falta el valor de '" + column + "'");
+        }
+        return value.trim();
+    }
+
+    private String safeGet(CSVRecord record, String column) {
+        try {
+            return record.isMapped(column) ? record.get(column) : "";
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private String normalizeCondition(String raw) {
+        String[] parts = raw.replace('_', ' ').trim().split("\\s+");
+        StringBuilder sb = new StringBuilder();
+        for (String part : parts) {
+            if (part.isEmpty()) continue;
+            if (sb.length() > 0) sb.append(' ');
+            sb.append(Character.toUpperCase(part.charAt(0))).append(part.substring(1).toLowerCase(Locale.ROOT));
+        }
+        return sb.toString();
+    }
+
+    private static final Map<String, String> LANGUAGE_NAMES = Map.ofEntries(
+            Map.entry("en", "English"),
+            Map.entry("es", "Spanish"),
+            Map.entry("fr", "French"),
+            Map.entry("de", "German"),
+            Map.entry("it", "Italian"),
+            Map.entry("pt", "Portuguese"),
+            Map.entry("ja", "Japanese"),
+            Map.entry("ko", "Korean"),
+            Map.entry("ru", "Russian"),
+            Map.entry("zhs", "Simplified Chinese"),
+            Map.entry("zht", "Traditional Chinese")
+    );
+
+    private String normalizeLanguage(String raw) {
+        String key = raw.trim().toLowerCase(Locale.ROOT);
+        return LANGUAGE_NAMES.getOrDefault(key, raw.toUpperCase(Locale.ROOT));
     }
 
     // AUTO UPDATE (cada 3 días)

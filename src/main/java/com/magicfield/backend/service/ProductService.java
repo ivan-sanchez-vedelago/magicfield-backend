@@ -2,10 +2,13 @@ package com.magicfield.backend.service;
 
 import com.magicfield.backend.dto.AvailabilityCheckRequest;
 import com.magicfield.backend.dto.AvailabilityCheckResponse;
+import com.magicfield.backend.dto.CsvImportResult;
 import com.magicfield.backend.dto.PagedProductResponse;
 import com.magicfield.backend.dto.ProductRequest;
 import com.magicfield.backend.dto.ProductResponse;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,4 +34,6 @@ public interface ProductService {
     void delete(UUID id);
 
     void decreaseStock(UUID productId, int quantity);
+
+    CsvImportResult importSinglesFromCsv(MultipartFile file) throws IOException;
 }

@@ -2,6 +2,7 @@ package com.magicfield.backend.controller;
 
 import com.magicfield.backend.dto.AvailabilityCheckRequest;
 import com.magicfield.backend.dto.AvailabilityCheckResponse;
+import com.magicfield.backend.dto.CsvImportResult;
 import com.magicfield.backend.dto.PagedProductResponse;
 import com.magicfield.backend.dto.ProductRequest;
 import com.magicfield.backend.dto.ProductResponse;
@@ -10,7 +11,9 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
@@ -120,5 +123,14 @@ public class ProductController {
     ) {
         productService.decreaseStock(id, quantity);
         return ResponseEntity.noContent().build();
+    }
+
+    // Importación masiva de singles desde un CSV exportado de ManaBox.
+    @PostMapping(value = "/import-singles-csv", consumes = "multipart/form-data")
+    public ResponseEntity<CsvImportResult> importSinglesCsv(
+            @RequestParam("file") MultipartFile file
+    ) throws IOException {
+        CsvImportResult result = productService.importSinglesFromCsv(file);
+        return ResponseEntity.ok(result);
     }
 }
