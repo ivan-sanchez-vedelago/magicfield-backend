@@ -161,15 +161,18 @@ public class ProductServiceImpl implements ProductService {
 
     private ProductResponse toResponseWithImages(Product p, Map<UUID, List<String>> imagesByProduct) {
         List<String> imageUrls;
+        String description = p.getDescription();
         if (p.getCategory() != null && "SIN".equals(p.getCategory().getShortName()) && p.getScryfallId() != null) {
-            imageUrls = scryfallService.getImageUrls(p.getScryfallId());
+            ScryfallService.ScryfallCardData cardData = scryfallService.getCardData(p.getScryfallId());
+            imageUrls = cardData.getImageUrls();
+            if (cardData.getDescription() != null) description = cardData.getDescription();
         } else {
             imageUrls = imagesByProduct.getOrDefault(p.getId(), List.of());
         }
         return new ProductResponse(
                 p.getId(),
                 p.getName(),
-                p.getDescription(),
+                description,
                 p.getPrice(),
                 p.getStock(),
                 p.getCategory() != null ? p.getCategory().getShortName() : null,
@@ -569,9 +572,12 @@ public class ProductServiceImpl implements ProductService {
 
     private ProductResponse toResponse(Product p) {
         List<String> imageUrls;
+        String description = p.getDescription();
 
         if (p.getCategory() != null && "SIN".equals(p.getCategory().getShortName()) && p.getScryfallId() != null) {
-            imageUrls = scryfallService.getImageUrls(p.getScryfallId());
+            ScryfallService.ScryfallCardData cardData = scryfallService.getCardData(p.getScryfallId());
+            imageUrls = cardData.getImageUrls();
+            if (cardData.getDescription() != null) description = cardData.getDescription();
         } else {
             imageUrls = imageRepository
                     .findByProductIdOrderByIdAsc(p.getId())
@@ -583,7 +589,7 @@ public class ProductServiceImpl implements ProductService {
         return new ProductResponse(
                 p.getId(),
                 p.getName(),
-                p.getDescription(),
+                description,
                 p.getPrice(),
                 p.getStock(),
                 p.getCategory() != null ? p.getCategory().getShortName() : null,

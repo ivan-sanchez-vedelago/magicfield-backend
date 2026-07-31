@@ -70,7 +70,18 @@ public class ScryfallService {
     }
 
     public List<String> getImageUrls(String scryfallId) {
+        return getCardData(scryfallId).getImageUrls();
+    }
+
+    /**
+     * Imágenes + texto de reglas (oracle text) de una carta, en una sola llamada a Scryfall.
+     * El texto de reglas se usa como "descripción" del single en vez de guardar una propia en
+     * la base — así queda siempre actualizado y no depende de si el producto se creó a mano o
+     * se importó por CSV (donde no hay ningún dato de descripción disponible).
+     */
+    public ScryfallCardData getCardData(String scryfallId) {
         List<String> urls = new ArrayList<>();
+        String description = null;
         try {
             acquireRateLimit();
             String url = "https://api.scryfall.com/cards/" + scryfallId;
@@ -79,6 +90,7 @@ public class ScryfallService {
             // Carta con dos caras
             Object faces = response.get("card_faces");
             if (faces instanceof List<?> faceList) {
+                List<String> texts = new ArrayList<>();
                 for (Object face : faceList) {
                     if (face instanceof Map<?, ?> faceMap) {
                         Map<?, ?> imageUris = (Map<?, ?>) faceMap.get("image_uris");
@@ -86,8 +98,11 @@ public class ScryfallService {
                             String normal = (String) imageUris.get("normal");
                             if (normal != null) urls.add(normal);
                         }
+                        Object oracleText = faceMap.get("oracle_text");
+                        if (oracleText instanceof String s && !s.isBlank()) texts.add(s);
                     }
                 }
+                if (!texts.isEmpty()) description = String.join("\n---\n", texts);
             }
 
             // Carta normal (una cara)
@@ -98,10 +113,27 @@ public class ScryfallService {
                     if (normal != null) urls.add(normal);
                 }
             }
+            if (description == null) {
+                Object oracleText = response.get("oracle_text");
+                if (oracleText instanceof String s && !s.isBlank()) description = s;
+            }
 
         } catch (Exception e) {
-            log.error("[Scryfall] error en getImageUrls scryfallId={}: {}", scryfallId, e.getMessage());
+            log.error("[Scryfall] error en getCardData scryfallId={}: {}", scryfallId, e.getMessage());
         }
-        return urls;
+        return new ScryfallCardData(urls, description);
+    }
+
+    public static class ScryfallCardData {
+        private final List<String> imageUrls;
+        private final String description;
+
+        public ScryfallCardData(List<String> imageUrls, String description) {
+            this.imageUrls = imageUrls;
+            this.description = description;
+        }
+
+        public List<String> getImageUrls() { return imageUrls; }
+        public String getDescription() { return description; }
     }
 }
