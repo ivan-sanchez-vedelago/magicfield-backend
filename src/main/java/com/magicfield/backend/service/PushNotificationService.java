@@ -36,10 +36,12 @@ public class PushNotificationService {
         deviceToken.setPlatform(platform);
         deviceToken.setLastSeenAt(LocalDateTime.now());
         pushDeviceTokenRepository.save(deviceToken);
+        log.info("[PushNotificationService] Token registrado (platform={}): {}", platform, token);
     }
 
     public void notifyNewOrder(String title, String body) {
         List<PushDeviceToken> tokens = pushDeviceTokenRepository.findAll();
+        log.info("[PushNotificationService] notifyNewOrder: {} token(s) registrados", tokens.size());
         if (tokens.isEmpty()) {
             return;
         }
@@ -65,29 +67,35 @@ public class PushNotificationService {
                     .build();
 
             HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            log.info("[PushNotificationService] Respuesta Expo ({} tokens): {}", tokens.size(), response.body());
 
             if (response.statusCode() >= 400) {
                 log.error("[PushNotificationService] Error enviando push: {}", response.body());
                 return;
             }
 
-            removeStaleTokens(tokens, response.body());
+            processTickets(tokens, response.body());
         } catch (Exception e) {
             log.error("[PushNotificationService] Error enviando push: {}", e.getMessage());
         }
     }
 
-    /** Da de baja los tokens que Expo reporta como no registrados (app desinstalada, etc). */
-    private void removeStaleTokens(List<PushDeviceToken> tokens, String responseBody) {
+    /** Loguea el resultado por token y da de baja los que Expo reporta como no registrados. */
+    private void processTickets(List<PushDeviceToken> tokens, String responseBody) {
         try {
             JsonNode data = mapper.readTree(responseBody).get("data");
             if (data == null || !data.isArray() || data.size() != tokens.size()) return;
 
             for (int i = 0; i < tokens.size(); i++) {
                 JsonNode ticket = data.get(i);
-                if ("error".equals(ticket.path("status").asText())
-                        && "DeviceNotRegistered".equals(ticket.path("details").path("error").asText())) {
-                    pushDeviceTokenRepository.delete(tokens.get(i));
+                String status = ticket.path("status").asText();
+                if ("error".equals(status)) {
+                    String errorCode = ticket.path("details").path("error").asText();
+                    log.error("[PushNotificationService] Ticket con error para token={}: {} ({})",
+                            tokens.get(i).getToken(), errorCode, ticket.path("message").asText());
+                    if ("DeviceNotRegistered".equals(errorCode)) {
+                        pushDeviceTokenRepository.delete(tokens.get(i));
+                    }
                 }
             }
         } catch (Exception e) {
