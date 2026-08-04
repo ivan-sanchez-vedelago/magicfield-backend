@@ -58,6 +58,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/sales-audit/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/sales-audit").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/banners").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/push-tokens").permitAll()
 
                 // Auth endpoints (public access for login/register, profile validated in controller)
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()

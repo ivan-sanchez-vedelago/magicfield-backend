@@ -30,6 +30,7 @@ public class OrderService {
     private final ProductService productService;
     private final EmailService emailService;
     private final SalesAuditRepository salesAuditRepository;
+    private final PushNotificationService pushNotificationService;
 
     @Value("${app.admin-email}")
     private String adminEmail;
@@ -38,12 +39,14 @@ public class OrderService {
             ProductRepository productRepository,
             ProductService productService,
             EmailService emailService,
-            SalesAuditRepository salesAuditRepository
+            SalesAuditRepository salesAuditRepository,
+            PushNotificationService pushNotificationService
     ) {
         this.productRepository = productRepository;
         this.productService = productService;
         this.emailService = emailService;
         this.salesAuditRepository = salesAuditRepository;
+        this.pushNotificationService = pushNotificationService;
     }
 
     /** Capitaliza la primera letra de cada palabra, dejando en minúscula las preposiciones comunes. */
@@ -192,6 +195,16 @@ public class OrderService {
             );
         } catch (Exception e) {
             log.error("[OrderService] Error enviando email cliente email={}: {}", request.getCustomerEmail(), e.getMessage());
+        }
+
+        // PUSH NOTIFICATION ADMIN
+        try {
+            pushNotificationService.notifyNewOrder(
+                "Nuevo pedido recibido",
+                clienteName + " - $" + total
+            );
+        } catch (Exception e) {
+            log.error("[OrderService] Error enviando push admin para orderId={}: {}", orderId, e.getMessage());
         }
     }
 
