@@ -257,7 +257,7 @@ public class AnalyticsService {
                 String categoryName = categoryRepository.findByShortName(category)
                         .map(c -> c.getName())
                         .orElse(category);
-                return "Productos: " + categoryName;
+                return "Categoria: " + categoryName;
             }
             if (params.containsKey("search")) {
                 return "Búsqueda de productos";
