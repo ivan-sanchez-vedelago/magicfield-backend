@@ -27,31 +27,26 @@ public interface AnalyticsEventRepository extends JpaRepository<AnalyticsEvent, 
            nativeQuery = true)
     List<Object[]> findSessionPageviewCounts(@Param("since") LocalDateTime since);
 
-    @Query(value = "SELECT path, COUNT(*) as cnt FROM analytics_events WHERE created_at >= :since " +
+    // Páginas del front (todo lo que NO sea el detalle de un producto): sin límite, se muestran todas.
+    @Query(value = "SELECT path, COUNT(*) as cnt FROM analytics_events " +
+                   "WHERE created_at >= :since AND path !~ '^/products/[0-9a-fA-F-]{36}$' " +
+                   "GROUP BY path ORDER BY cnt DESC", nativeQuery = true)
+    List<Object[]> findTopFrontPages(@Param("since") LocalDateTime since);
+
+    // Detalle de producto: solo el top 10 (se resuelve nombre + imagen en el service).
+    @Query(value = "SELECT path, COUNT(*) as cnt FROM analytics_events " +
+                   "WHERE created_at >= :since AND path ~ '^/products/[0-9a-fA-F-]{36}$' " +
                    "GROUP BY path ORDER BY cnt DESC LIMIT 10", nativeQuery = true)
-    List<Object[]> findTopPaths(@Param("since") LocalDateTime since);
+    List<Object[]> findTopProductPaths(@Param("since") LocalDateTime since);
 
-    @Query(value = "SELECT COALESCE(NULLIF(referrer, ''), 'Directo') as ref, COUNT(*) as cnt " +
-                   "FROM analytics_events WHERE created_at >= :since GROUP BY ref ORDER BY cnt DESC LIMIT 10",
-           nativeQuery = true)
-    List<Object[]> findTopReferrers(@Param("since") LocalDateTime since);
-
-    @Query(value = "SELECT COALESCE(NULLIF(country, ''), 'Desconocido') as c, COUNT(*) as cnt " +
-                   "FROM analytics_events WHERE created_at >= :since GROUP BY c ORDER BY cnt DESC LIMIT 10",
-           nativeQuery = true)
-    List<Object[]> findTopCountries(@Param("since") LocalDateTime since);
-
-    @Query(value = "SELECT device_type, COUNT(*) as cnt FROM analytics_events WHERE created_at >= :since " +
-                   "GROUP BY device_type ORDER BY cnt DESC", nativeQuery = true)
-    List<Object[]> findDeviceBreakdown(@Param("since") LocalDateTime since);
-
-    @Query(value = "SELECT browser, COUNT(*) as cnt FROM analytics_events WHERE created_at >= :since " +
-                   "GROUP BY browser ORDER BY cnt DESC LIMIT 5", nativeQuery = true)
-    List<Object[]> findBrowserBreakdown(@Param("since") LocalDateTime since);
-
-    @Query(value = "SELECT os, COUNT(*) as cnt FROM analytics_events WHERE created_at >= :since " +
-                   "GROUP BY os ORDER BY cnt DESC LIMIT 5", nativeQuery = true)
-    List<Object[]> findOsBreakdown(@Param("since") LocalDateTime since);
+    // Un solo row por sesión (el primero, por created_at/id): así fuentes de tráfico, país,
+    // dispositivo, navegador y SO reflejan el acceso inicial y no cada redirección interna.
+    @Query(value = "SELECT referrer, country, device_type, browser, os FROM (" +
+                   "  SELECT referrer, country, device_type, browser, os, " +
+                   "         ROW_NUMBER() OVER (PARTITION BY session_id ORDER BY created_at ASC, id ASC) AS rn " +
+                   "  FROM analytics_events WHERE created_at >= :since" +
+                   ") first_events WHERE rn = 1", nativeQuery = true)
+    List<Object[]> findFirstEventOfEachSessionSince(@Param("since") LocalDateTime since);
 
     // Housekeeping: no acumular eventos para siempre
     void deleteByCreatedAtBefore(LocalDateTime cutoff);

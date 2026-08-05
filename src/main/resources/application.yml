@@ -45,6 +45,7 @@ spring:
 app:
   admin-email: ${APP_ADMIN_EMAIL}
   email-from: ${APP_EMAIL_FROM}
+  site-domain: ${APP_SITE_DOMAIN:magicfield.com.ar}
 
 firebase:
   bucket: ${FIREBASE_BUCKET}

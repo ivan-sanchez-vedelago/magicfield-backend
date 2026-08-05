@@ -3,27 +3,32 @@ package com.magicfield.backend.service;
 import com.magicfield.backend.dto.AnalyticsEventRequest;
 import com.magicfield.backend.dto.SiteAnalyticsDTO;
 import com.magicfield.backend.entity.AnalyticsEvent;
+import com.magicfield.backend.entity.Image;
+import com.magicfield.backend.entity.Product;
 import com.magicfield.backend.repository.AnalyticsEventRepository;
 import com.magicfield.backend.repository.CategoryRepository;
 import com.magicfield.backend.repository.ProductRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.UnsupportedEncodingException;
+import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Analítica web propia (reemplaza a Umami): el frontend manda un evento por
@@ -40,6 +45,9 @@ public class AnalyticsService {
 
     // Cuánto tiempo conservamos eventos crudos antes de purgarlos.
     private static final long RETENTION_DAYS = 400;
+
+    @Value("${app.site-domain:}")
+    private String siteDomain;
 
     private final AnalyticsEventRepository repository;
     private final ProductRepository productRepository;
@@ -86,24 +94,116 @@ public class AnalyticsService {
         dto.setSessions(totalSessions);
         dto.setBounceRate(totalSessions > 0 ? (double) bounces / totalSessions * 100 : 0);
 
-        dto.setTopPages(toHumanizedTopPages(repository.findTopPaths(since)));
-        dto.setReferrers(toMetricItems(repository.findTopReferrers(since)));
-        dto.setCountries(toMetricItems(repository.findTopCountries(since)));
-        dto.setDevices(toMetricItems(repository.findDeviceBreakdown(since)));
-        dto.setBrowsers(toMetricItems(repository.findBrowserBreakdown(since)));
-        dto.setOperatingSystems(toMetricItems(repository.findOsBreakdown(since)));
+        dto.setTopFrontPages(toHumanizedTopPages(repository.findTopFrontPages(since)));
+        dto.setTopProducts(toTopProducts(repository.findTopProductPaths(since)));
+
+        // Fuentes de tráfico, país, dispositivo, navegador y SO: solo el acceso inicial de
+        // cada sesión (no cada pageview/redirección interna posterior).
+        List<Object[]> firstEvents = repository.findFirstEventOfEachSessionSince(since);
+        dto.setReferrers(topN(countBy(firstEvents, row -> resolveTrafficSource((String) row[0])), 10));
+        dto.setCountries(topN(countBy(firstEvents, row -> {
+            String c = (String) row[1];
+            return (c == null || c.isBlank()) ? "Desconocido" : c;
+        }), 10));
+        dto.setDevices(topN(countBy(firstEvents, row -> (String) row[2]), Integer.MAX_VALUE));
+        dto.setBrowsers(topN(countBy(firstEvents, row -> (String) row[3]), 5));
+        dto.setOperatingSystems(topN(countBy(firstEvents, row -> (String) row[4]), 5));
 
         return dto;
     }
 
-    private List<SiteAnalyticsDTO.MetricItem> toMetricItems(List<Object[]> rows) {
-        List<SiteAnalyticsDTO.MetricItem> items = new ArrayList<>();
+    private Map<String, Integer> countBy(List<Object[]> rows, Function<Object[], String> keyFn) {
+        Map<String, Integer> counts = new LinkedHashMap<>();
         for (Object[] row : rows) {
-            String x = String.valueOf(row[0]);
-            int y = ((Number) row[1]).intValue();
-            items.add(new SiteAnalyticsDTO.MetricItem(x, y));
+            counts.merge(keyFn.apply(row), 1, Integer::sum);
+        }
+        return counts;
+    }
+
+    private List<SiteAnalyticsDTO.MetricItem> topN(Map<String, Integer> counts, int limit) {
+        return counts.entrySet().stream()
+                .sorted((a, b) -> b.getValue() - a.getValue())
+                .limit(limit)
+                .map(e -> new SiteAnalyticsDTO.MetricItem(e.getKey(), e.getValue()))
+                .collect(Collectors.toList());
+    }
+
+    // --- Fuente de tráfico: "Directo" si es el propio sitio o no hay referrer, si no el
+    // nombre de la fuente conocida (para no mostrar la URL cruda con query strings distintas) ---
+
+    private boolean isSameSite(String referrerHost) {
+        if (siteDomain == null || siteDomain.isBlank() || referrerHost == null) return false;
+        String host = stripWww(referrerHost.toLowerCase(Locale.ROOT));
+        String domain = stripWww(siteDomain.toLowerCase(Locale.ROOT));
+        return host.equals(domain) || host.endsWith("." + domain);
+    }
+
+    private String stripWww(String host) {
+        return host.startsWith("www.") ? host.substring(4) : host;
+    }
+
+    private String resolveTrafficSource(String referrer) {
+        if (referrer == null || referrer.isBlank()) return "Directo";
+
+        String host;
+        try {
+            host = URI.create(referrer).getHost();
+        } catch (Exception e) {
+            return "Directo";
+        }
+        if (host == null || isSameSite(host)) return "Directo";
+
+        String h = stripWww(host.toLowerCase(Locale.ROOT));
+        if (h.contains("google.")) return "Google";
+        if (h.contains("instagram.")) return "Instagram";
+        if (h.contains("facebook.")) return "Facebook";
+        if (h.contains("twitter.") || h.equals("t.co") || h.contains("x.com")) return "Twitter/X";
+        if (h.contains("whatsapp.") || h.equals("wa.me")) return "WhatsApp";
+        if (h.contains("bing.")) return "Bing";
+        if (h.contains("duckduckgo.")) return "DuckDuckGo";
+        if (h.contains("yahoo.")) return "Yahoo";
+        if (h.contains("tiktok.")) return "TikTok";
+        return h;
+    }
+
+    // --- "Productos más visitados": top 10 con nombre + imagen para mostrar en el dashboard ---
+
+    private List<SiteAnalyticsDTO.ProductMetricItem> toTopProducts(List<Object[]> rows) {
+        List<SiteAnalyticsDTO.ProductMetricItem> items = new ArrayList<>();
+        for (Object[] row : rows) {
+            Matcher matcher = PRODUCT_DETAIL_PATTERN.matcher(String.valueOf(row[0]));
+            if (!matcher.matches()) continue;
+
+            UUID productId;
+            try {
+                productId = UUID.fromString(matcher.group(1));
+            } catch (IllegalArgumentException e) {
+                continue;
+            }
+
+            SiteAnalyticsDTO.ProductMetricItem item = new SiteAnalyticsDTO.ProductMetricItem();
+            item.setCount(((Number) row[1]).intValue());
+            productRepository.findById(productId).ifPresentOrElse(p -> {
+                item.setProductId(p.getId().toString());
+                item.setName(p.getName());
+                item.setImageUrl(primaryImageUrl(p));
+            }, () -> {
+                item.setProductId(productId.toString());
+                item.setName("Producto (eliminado)");
+            });
+            items.add(item);
         }
         return items;
+    }
+
+    private String primaryImageUrl(Product product) {
+        List<Image> images = product.getImages();
+        if (images == null || images.isEmpty()) return null;
+        return images.stream()
+                .filter(Image::isPrimaryImage)
+                .findFirst()
+                .map(Image::getUrl)
+                .orElseGet(() -> images.get(0).getUrl());
     }
 
     // --- "Páginas más visitadas": traduce URLs crudas a descripciones en lenguaje natural ---
@@ -135,24 +235,13 @@ public class AnalyticsService {
     }
 
     private String humanizePath(String rawPath) {
+        // Las URLs de detalle de producto ya se excluyen en la query (van por toTopProducts).
         String path = rawPath;
         String query = null;
         int qIdx = rawPath.indexOf('?');
         if (qIdx >= 0) {
             path = rawPath.substring(0, qIdx);
             query = rawPath.substring(qIdx + 1);
-        }
-
-        Matcher productMatch = PRODUCT_DETAIL_PATTERN.matcher(path);
-        if (productMatch.matches()) {
-            try {
-                UUID productId = UUID.fromString(productMatch.group(1));
-                return productRepository.findById(productId)
-                        .map(p -> "Producto: " + p.getName())
-                        .orElse("Producto (eliminado)");
-            } catch (IllegalArgumentException e) {
-                return rawPath;
-            }
         }
 
         if ("/products".equals(path)) {

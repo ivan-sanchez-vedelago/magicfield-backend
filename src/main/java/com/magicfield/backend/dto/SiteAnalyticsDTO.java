@@ -21,10 +21,27 @@ public class SiteAnalyticsDTO {
         public void setY(int y) { this.y = y; }
     }
 
+    public static class ProductMetricItem {
+        private String productId;
+        private String name;
+        private String imageUrl;
+        private int count;
+
+        public String getProductId() { return productId; }
+        public void setProductId(String productId) { this.productId = productId; }
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+        public String getImageUrl() { return imageUrl; }
+        public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+        public int getCount() { return count; }
+        public void setCount(int count) { this.count = count; }
+    }
+
     private long pageViews;
     private long sessions;
     private double bounceRate;
-    private List<MetricItem> topPages;
+    private List<MetricItem> topFrontPages;
+    private List<ProductMetricItem> topProducts;
     private List<MetricItem> referrers;
     private List<MetricItem> countries;
     private List<MetricItem> browsers;
@@ -48,8 +65,11 @@ public class SiteAnalyticsDTO {
     public double getBounceRate() { return bounceRate; }
     public void setBounceRate(double bounceRate) { this.bounceRate = bounceRate; }
 
-    public List<MetricItem> getTopPages() { return topPages; }
-    public void setTopPages(List<MetricItem> topPages) { this.topPages = topPages; }
+    public List<MetricItem> getTopFrontPages() { return topFrontPages; }
+    public void setTopFrontPages(List<MetricItem> topFrontPages) { this.topFrontPages = topFrontPages; }
+
+    public List<ProductMetricItem> getTopProducts() { return topProducts; }
+    public void setTopProducts(List<ProductMetricItem> topProducts) { this.topProducts = topProducts; }
 
     public List<MetricItem> getReferrers() { return referrers; }
     public void setReferrers(List<MetricItem> referrers) { this.referrers = referrers; }
