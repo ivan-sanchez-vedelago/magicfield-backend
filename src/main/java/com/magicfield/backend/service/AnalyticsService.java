@@ -225,13 +225,19 @@ public class AnalyticsService {
             Pattern.compile("^/products/([0-9a-fA-F-]{36})$");
 
     private List<SiteAnalyticsDTO.MetricItem> toHumanizedTopPages(List<Object[]> rows) {
-        List<SiteAnalyticsDTO.MetricItem> items = new ArrayList<>();
+        // Distintas URLs crudas (ej. "/auth/login" y "/auth/login?redirect=/perfil") pueden
+        // humanizarse al mismo nombre: hay que reagrupar por el nombre ya traducido, no solo
+        // por la URL cruda, para no mostrar la misma página duplicada con conteos separados.
+        Map<String, Integer> counts = new LinkedHashMap<>();
         for (Object[] row : rows) {
             String rawPath = String.valueOf(row[0]);
             int count = ((Number) row[1]).intValue();
-            items.add(new SiteAnalyticsDTO.MetricItem(humanizePath(rawPath), count));
+            counts.merge(humanizePath(rawPath), count, Integer::sum);
         }
-        return items;
+        return counts.entrySet().stream()
+                .sorted((a, b) -> b.getValue() - a.getValue())
+                .map(e -> new SiteAnalyticsDTO.MetricItem(e.getKey(), e.getValue()))
+                .collect(Collectors.toList());
     }
 
     private String humanizePath(String rawPath) {
