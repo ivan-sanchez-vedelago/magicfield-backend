@@ -37,7 +37,8 @@ public class ScryfallService {
         }
     }
 
-    public BigDecimal getPrice(String scryfallId, Boolean isFoil) {
+    // finishShortName: el short_name de CardFinish (NONFOIL/FOIL/ETCHED/GLOSSY).
+    public BigDecimal getPrice(String scryfallId, String finishShortName) {
         try {
             acquireRateLimit();
             String url = "https://api.scryfall.com/cards/" + scryfallId;
@@ -54,11 +55,15 @@ public class ScryfallService {
                 return BigDecimal.ZERO;
             }
 
-            String usd = (String) prices.get("usd");
-            String usdFoil = (String) prices.get("usd_foil");
+            // Scryfall no tiene un precio "usd_glossy" propio: usamos el de foil como
+            // mejor aproximación disponible para ese finish (poco común, sin dato exacto).
+            String priceKey = switch (finishShortName == null ? "NONFOIL" : finishShortName.toUpperCase()) {
+                case "FOIL", "GLOSSY" -> "usd_foil";
+                case "ETCHED" -> "usd_etched";
+                default -> "usd";
+            };
 
-            String priceStr = (isFoil != null && isFoil) ? usdFoil : usd;
-
+            String priceStr = (String) prices.get(priceKey);
             if (priceStr == null) return BigDecimal.ZERO;
 
             return new BigDecimal(priceStr);

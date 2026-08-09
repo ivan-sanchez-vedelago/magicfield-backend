@@ -19,7 +19,11 @@ public interface ProductService {
 
     PagedProductResponse listPaged(String search, List<String> categories, int page, int size, String sort);
 
+    PagedProductResponse listCatalogPaged(String search, List<String> categories, int page, int size, String sort);
+
     PagedProductResponse listRestorablePaged(String search, int page, int size);
+
+    List<ProductResponse> getVariants(UUID productId);
 
     ProductResponse getById(UUID id);
 

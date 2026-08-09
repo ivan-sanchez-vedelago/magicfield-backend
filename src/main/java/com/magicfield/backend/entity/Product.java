@@ -42,8 +42,9 @@ public class Product {
     @Column
     private String scryfallId;
 
-    @Column
-    private Boolean isFoil;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "finish_id")
+    private CardFinish finish;
 
     @Column
     private String set;
@@ -51,11 +52,13 @@ public class Product {
     @Column
     private String collectorNumber;
 
-    @Column
-    private String condition;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "condition_id")
+    private CardCondition condition;
 
-    @Column
-    private String language;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "language_id")
+    private CardLanguage language;
 
     @OneToMany(
         mappedBy = "product",
@@ -140,12 +143,12 @@ public class Product {
         this.scryfallId = scryfallId;
     }
 
-    public Boolean getIsFoil() {
-        return isFoil;
+    public CardFinish getFinish() {
+        return finish;
     }
 
-    public void setIsFoil(Boolean isFoil) {
-        this.isFoil = isFoil;
+    public void setFinish(CardFinish finish) {
+        this.finish = finish;
     }
 
     public String getSet() {
@@ -164,19 +167,19 @@ public class Product {
         this.collectorNumber = collectorNumber;
     }
 
-    public String getCondition() {
+    public CardCondition getCondition() {
         return condition;
     }
 
-    public void setCondition(String condition) {
+    public void setCondition(CardCondition condition) {
         this.condition = condition;
     }
 
-    public String getLanguage() {
+    public CardLanguage getLanguage() {
         return language;
     }
 
-    public void setLanguage(String language) {
+    public void setLanguage(CardLanguage language) {
         this.language = language;
     }
 

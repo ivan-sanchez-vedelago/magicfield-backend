@@ -14,16 +14,28 @@ public class ProductResponse {
     private Integer stock;
     private String type;
     private String scryfallId;
-    private Boolean isFoil;
+    private Long finishId;
+    private String finishShortName;
+    private String finishName;
     private String set;
     private String collectorNumber;
-    private String condition;
-    private String language;
+    private Long conditionId;
+    private String conditionName;
+    private Long languageId;
+    private String languageName;
     private Long categoryId;
     private LocalDateTime createdAt;
 
     // URLs públicas (Firebase, S3, CDN, etc.)
     private List<String> imageUrls;
+
+    // Solo se llena en la respuesta de create(): true si en vez de crear una fila nueva
+    // se sumó el stock pedido a un producto existente con la misma variante.
+    private boolean merged;
+
+    // Solo se llena en el catálogo público agrupado: cantidad de variantes
+    // (condición/idioma) distintas que existen en stock para esta carta+finish.
+    private Integer variantCount;
 
     public ProductResponse() {
     }
@@ -36,11 +48,15 @@ public class ProductResponse {
             Integer stock,
             String type,
             String scryfallId,
-            Boolean isFoil,
+            Long finishId,
+            String finishShortName,
+            String finishName,
             String set,
             String collectorNumber,
-            String condition,
-            String language,
+            Long conditionId,
+            String conditionName,
+            Long languageId,
+            String languageName,
             Long categoryId,
             LocalDateTime createdAt,
             List<String> imageUrls
@@ -52,11 +68,15 @@ public class ProductResponse {
         this.stock = stock;
         this.type = type;
         this.scryfallId = scryfallId;
-        this.isFoil = isFoil;
+        this.finishId = finishId;
+        this.finishShortName = finishShortName;
+        this.finishName = finishName;
         this.set = set;
         this.collectorNumber = collectorNumber;
-        this.condition = condition;
-        this.language = language;
+        this.conditionId = conditionId;
+        this.conditionName = conditionName;
+        this.languageId = languageId;
+        this.languageName = languageName;
         this.categoryId = categoryId;
         this.createdAt = createdAt;
         this.imageUrls = imageUrls;
@@ -90,8 +110,16 @@ public class ProductResponse {
         return scryfallId;
     }
 
-    public Boolean getIsFoil() {
-        return isFoil;
+    public Long getFinishId() {
+        return finishId;
+    }
+
+    public String getFinishShortName() {
+        return finishShortName;
+    }
+
+    public String getFinishName() {
+        return finishName;
     }
 
     public String getSet() {
@@ -102,12 +130,36 @@ public class ProductResponse {
         return collectorNumber;
     }
 
-    public String getCondition() {
-        return condition;
+    public Long getConditionId() {
+        return conditionId;
     }
 
-    public String getLanguage() {
-        return language;
+    public String getConditionName() {
+        return conditionName;
+    }
+
+    public Long getLanguageId() {
+        return languageId;
+    }
+
+    public String getLanguageName() {
+        return languageName;
+    }
+
+    public boolean isMerged() {
+        return merged;
+    }
+
+    public void setMerged(boolean merged) {
+        this.merged = merged;
+    }
+
+    public Integer getVariantCount() {
+        return variantCount;
+    }
+
+    public void setVariantCount(Integer variantCount) {
+        this.variantCount = variantCount;
     }
 
     public Long getCategoryId() {
@@ -150,8 +202,16 @@ public class ProductResponse {
         this.scryfallId = scryfallId;
     }
 
-    public void setIsFoil(Boolean isFoil) {
-        this.isFoil = isFoil;
+    public void setFinishId(Long finishId) {
+        this.finishId = finishId;
+    }
+
+    public void setFinishShortName(String finishShortName) {
+        this.finishShortName = finishShortName;
+    }
+
+    public void setFinishName(String finishName) {
+        this.finishName = finishName;
     }
 
     public void setSet(String set) {
@@ -162,12 +222,20 @@ public class ProductResponse {
         this.collectorNumber = collectorNumber;
     }
 
-    public void setCondition(String condition) {
-        this.condition = condition;
+    public void setConditionId(Long conditionId) {
+        this.conditionId = conditionId;
     }
 
-    public void setLanguage(String language) {
-        this.language = language;
+    public void setConditionName(String conditionName) {
+        this.conditionName = conditionName;
+    }
+
+    public void setLanguageId(Long languageId) {
+        this.languageId = languageId;
+    }
+
+    public void setLanguageName(String languageName) {
+        this.languageName = languageName;
     }
 
     public void setCategoryId(Long categoryId) {

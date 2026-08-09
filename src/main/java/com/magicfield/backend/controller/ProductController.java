@@ -52,6 +52,33 @@ public class ProductController {
                 .body(result);
     }
 
+    // Catálogo público: agrupa los singles por (carta+finish) sumando stock entre
+    // condiciones/idiomas. Distinto de /paged (que sigue usando el admin, sin agrupar).
+    @GetMapping("/catalog")
+    public ResponseEntity<PagedProductResponse> listCatalog(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "") String search,
+            @RequestParam(defaultValue = "") String categories,
+            @RequestParam(defaultValue = "NAME_ASC") String sort
+    ) {
+        int clampedSize = Math.min(Math.max(size, 1), 30);
+        List<String> categoryList = categories.isBlank()
+                ? List.of()
+                : Arrays.asList(categories.split(","));
+        PagedProductResponse result = productService.listCatalogPaged(search, categoryList, page, clampedSize, sort);
+        return ResponseEntity.ok()
+                .header("Cache-Control", "public, max-age=60, stale-while-revalidate=120")
+                .body(result);
+    }
+
+    // Todas las variantes (condición/idioma) en stock de la misma carta+finish que el
+    // producto dado — para el selector de variantes de la pantalla de detalle.
+    @GetMapping("/{id}/variants")
+    public List<ProductResponse> getVariants(@PathVariable UUID id) {
+        return productService.getVariants(id);
+    }
+
     // Revalida stock/existencia de los items del carrito antes de avanzar a datos de envío o finalizar la compra.
     @PostMapping("/check-availability")
     public AvailabilityCheckResponse checkAvailability(

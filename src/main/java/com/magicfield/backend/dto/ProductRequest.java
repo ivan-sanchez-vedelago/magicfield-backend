@@ -22,11 +22,11 @@ public class ProductRequest {
 
     // SINGLE
     private String scryfallId;
-    private Boolean isFoil;
+    private Long finishId;
     private String set;
     private String collectorNumber;
-    private String condition;
-    private String language;
+    private Long conditionId;
+    private Long languageId;
 
     public ProductRequest() {
     }
@@ -79,12 +79,12 @@ public class ProductRequest {
         this.scryfallId = scryfallId;
     }
 
-    public Boolean getIsFoil() {
-        return isFoil;
+    public Long getFinishId() {
+        return finishId;
     }
 
-    public void setIsFoil(Boolean isFoil) {
-        this.isFoil = isFoil;
+    public void setFinishId(Long finishId) {
+        this.finishId = finishId;
     }
 
     public String getSet() {
@@ -103,19 +103,19 @@ public class ProductRequest {
         this.collectorNumber = collectorNumber;
     }
 
-    public String getCondition() {
-        return condition;
+    public Long getConditionId() {
+        return conditionId;
     }
 
-    public void setCondition(String condition) {
-        this.condition = condition;
+    public void setConditionId(Long conditionId) {
+        this.conditionId = conditionId;
     }
 
-    public String getLanguage() {
-        return language;
+    public Long getLanguageId() {
+        return languageId;
     }
 
-    public void setLanguage(String language) {
-        this.language = language;
+    public void setLanguageId(Long languageId) {
+        this.languageId = languageId;
     }
 }

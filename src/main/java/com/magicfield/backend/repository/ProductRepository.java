@@ -14,10 +14,20 @@ import java.util.UUID;
 
 public interface ProductRepository extends JpaRepository<Product, UUID> {
 
-    Optional<Product> findByScryfallIdAndIsFoil(String scryfallId, Boolean isFoil);
+    Optional<Product> findByScryfallIdAndFinishIdAndConditionIdAndLanguageId(
+            String scryfallId, Long finishId, Long conditionId, Long languageId);
 
+    // Todas las variantes (condición/idioma) de la misma carta+finish, para el selector
+    // de variantes de la pantalla de detalle.
+    List<Product> findByScryfallIdAndFinishId(String scryfallId, Long finishId);
+
+    // LEFT JOIN FETCH de condition/finish: updatePrices() no es @Transactional, así que sin
+    // este fetch eager, leer p.getCondition()/p.getFinish() fuera de la query fallaría con
+    // LazyInitializationException (la sesión que trajo estos Product ya está cerrada).
     @Query("""
         SELECT p FROM Product p
+        LEFT JOIN FETCH p.condition
+        LEFT JOIN FETCH p.finish
         WHERE p.category.shortName = 'SIN'
         AND (
             p.lastPriceUpdate IS NULL OR
@@ -47,6 +57,22 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
         @Param("categories") List<String> categories,
         @Param("allCategories") boolean allCategories,
         Pageable pageable
+    );
+
+    // Mismo filtro que findPaged, pero sin paginar: insumo para agrupar los singles por
+    // (scryfallId, finish) en el catálogo público antes de recortar la página pedida.
+    @Query("""
+        SELECT p FROM Product p
+        LEFT JOIN FETCH p.category c
+        WHERE p.stock > 0
+        AND (:search = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%'))
+             OR (p.description IS NOT NULL AND LOWER(p.description) LIKE LOWER(CONCAT('%', :search, '%'))))
+        AND (:allCategories = true OR (c IS NOT NULL AND c.shortName IN :categories))
+    """)
+    List<Product> findAllMatching(
+        @Param("search") String search,
+        @Param("categories") List<String> categories,
+        @Param("allCategories") boolean allCategories
     );
 
     // Productos agotados (stock = 0) que ya no tienen ventas PENDING asociadas:
