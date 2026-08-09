@@ -77,7 +77,7 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpServletResponse response) {
         // Clear the auth cookie
-        response.addHeader("Set-Cookie", "authToken=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict");
+        response.addHeader("Set-Cookie", "authToken=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=None");
         return new ResponseEntity<>(HttpStatus.OK);
     }
 
@@ -96,7 +96,7 @@ public class AuthController {
             
             authService.deleteUser(userId);
             // Clear the auth cookie
-            response.addHeader("Set-Cookie", "authToken=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict");
+            response.addHeader("Set-Cookie", "authToken=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=None");
             return new ResponseEntity<>(HttpStatus.OK);
         } catch (RuntimeException e) {
             e.printStackTrace();
@@ -106,11 +106,14 @@ public class AuthController {
     }
 
     private void setAuthCookie(HttpServletResponse response, String token) {
-        // Set HttpOnly, Secure, SameSite cookie
+        // SameSite=None (no Strict): frontend y backend viven en dominios distintos
+        // (ej. magicfield.com.ar vs. *.up.railway.app), así que el navegador nunca
+        // adjunta una cookie Strict/Lax a los fetch cross-site que hace el frontend
+        // con credentials:'include'. None requiere Secure, que ya estaba.
         response.addHeader(
                 "Set-Cookie",
                 String.format(
-                        "authToken=%s; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=Strict",
+                        "authToken=%s; Path=/; Max-Age=604800; HttpOnly; Secure; SameSite=None",
                         token
                 )
         );
