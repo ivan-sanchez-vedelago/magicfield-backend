@@ -148,6 +148,12 @@ public class OrderService {
             audit.setOrderId(orderId);  // ← Asocia este item con la orden
             audit.setProductId(product.getId());
             audit.setProductName(product.getName());
+            if (product.getCategory() != null && "SIN".equals(product.getCategory().getShortName())) {
+                audit.setSet(product.getSet());
+                audit.setConditionName(product.getCondition() != null ? product.getCondition().getLongName() : null);
+                audit.setLanguageName(product.getLanguage() != null ? product.getLanguage().getLongName() : null);
+                audit.setFinishName(product.getFinish() != null ? product.getFinish().getLongName() : null);
+            }
             audit.setQuantity(item.getQuantity());
             audit.setUnitPrice(product.getPrice());
             audit.setSubtotal(BigDecimal.valueOf(subtotal));

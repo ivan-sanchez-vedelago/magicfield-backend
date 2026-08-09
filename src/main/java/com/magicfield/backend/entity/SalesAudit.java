@@ -20,6 +20,21 @@ public class SalesAudit {
     @Column(nullable = false)
     private String productName;
 
+    // Snapshot de datos del single al momento de la venta (mismo criterio que productName:
+    // strings planos, no FK, para que el registro de auditoría no cambie si luego se
+    // editan/borran las tablas de condición/idioma/finish). Null para no-singles.
+    @Column
+    private String set;
+
+    @Column
+    private String conditionName;
+
+    @Column
+    private String languageName;
+
+    @Column
+    private String finishName;
+
     @Column(nullable = false)
     private Integer quantity;
 
@@ -111,6 +126,38 @@ public class SalesAudit {
 
     public void setProductName(String productName) {
         this.productName = productName;
+    }
+
+    public String getSet() {
+        return set;
+    }
+
+    public void setSet(String set) {
+        this.set = set;
+    }
+
+    public String getConditionName() {
+        return conditionName;
+    }
+
+    public void setConditionName(String conditionName) {
+        this.conditionName = conditionName;
+    }
+
+    public String getLanguageName() {
+        return languageName;
+    }
+
+    public void setLanguageName(String languageName) {
+        this.languageName = languageName;
+    }
+
+    public String getFinishName() {
+        return finishName;
+    }
+
+    public void setFinishName(String finishName) {
+        this.finishName = finishName;
     }
 
     public Integer getQuantity() {
