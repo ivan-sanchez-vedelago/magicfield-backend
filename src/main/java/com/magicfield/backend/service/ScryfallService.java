@@ -2,11 +2,15 @@ package com.magicfield.backend.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
+import org.springframework.http.RequestEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
+import java.net.URI;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -55,23 +59,83 @@ public class ScryfallService {
                 return BigDecimal.ZERO;
             }
 
-            // Scryfall no tiene un precio "usd_glossy" propio: usamos el de foil como
-            // mejor aproximación disponible para ese finish (poco común, sin dato exacto).
-            String priceKey = switch (finishShortName == null ? "NONFOIL" : finishShortName.toUpperCase()) {
-                case "FOIL", "GLOSSY" -> "usd_foil";
-                case "ETCHED" -> "usd_etched";
-                default -> "usd";
-            };
-
-            String priceStr = (String) prices.get(priceKey);
-            if (priceStr == null) return BigDecimal.ZERO;
-
-            return new BigDecimal(priceStr);
+            return extractPrice(prices, finishShortName);
 
         } catch (Exception e) {
             log.error("[Scryfall] error en getPrice scryfallId={}: {}", scryfallId, e.getMessage());
             return BigDecimal.ZERO;
         }
+    }
+
+    /**
+     * Precios de mercado para muchas cartas en pocas llamadas: Scryfall permite hasta 75
+     * identificadores por request en /cards/collection, en vez de un GET por carta (útil para
+     * el import de CSV, donde puede haber hasta ~1000 filas).
+     * Devuelve, por scryfallId, el mapa crudo de precios de Scryfall (para resolver el finish
+     * correcto de cada fila con extractPrice) -- las cartas no encontradas simplemente no
+     * aparecen en el resultado.
+     */
+    public Map<String, Map> getPricesBulk(List<String> scryfallIds) {
+        Map<String, Map> pricesByCardId = new HashMap<>();
+        for (List<String> chunk : chunk(scryfallIds, 75)) {
+            try {
+                acquireRateLimit();
+                List<Map<String, String>> identifiers = chunk.stream()
+                        .map(id -> Map.of("id", id))
+                        .toList();
+
+                RequestEntity<Map<String, Object>> request = RequestEntity
+                        .post(URI.create("https://api.scryfall.com/cards/collection"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .body(Map.of("identifiers", identifiers));
+
+                Map response = restTemplate.exchange(request, Map.class).getBody();
+                if (response == null) continue;
+
+                List<Map> data = (List<Map>) response.get("data");
+                if (data == null) continue;
+
+                for (Map card : data) {
+                    Object id = card.get("id");
+                    Object prices = card.get("prices");
+                    if (id instanceof String cardId && prices instanceof Map priceMap) {
+                        pricesByCardId.put(cardId, priceMap);
+                    }
+                }
+            } catch (Exception e) {
+                log.error("[Scryfall] error en getPricesBulk para un lote de {} ids: {}", chunk.size(), e.getMessage());
+            }
+        }
+        return pricesByCardId;
+    }
+
+    // Scryfall no tiene un precio "usd_glossy" propio: usamos el de foil como
+    // mejor aproximación disponible para ese finish (poco común, sin dato exacto).
+    public BigDecimal extractPrice(Map prices, String finishShortName) {
+        if (prices == null) return BigDecimal.ZERO;
+
+        String priceKey = switch (finishShortName == null ? "NONFOIL" : finishShortName.toUpperCase()) {
+            case "FOIL", "GLOSSY" -> "usd_foil";
+            case "ETCHED" -> "usd_etched";
+            default -> "usd";
+        };
+
+        Object priceStr = prices.get(priceKey);
+        if (!(priceStr instanceof String s)) return BigDecimal.ZERO;
+
+        try {
+            return new BigDecimal(s);
+        } catch (NumberFormatException e) {
+            return BigDecimal.ZERO;
+        }
+    }
+
+    private static <T> List<List<T>> chunk(List<T> list, int size) {
+        List<List<T>> chunks = new ArrayList<>();
+        for (int i = 0; i < list.size(); i += size) {
+            chunks.add(list.subList(i, Math.min(i + size, list.size())));
+        }
+        return chunks;
     }
 
     public List<String> getImageUrls(String scryfallId) {

@@ -579,6 +579,15 @@ public class ProductServiceImpl implements ProductService {
             }
         }
 
+        // Precio de mercado en lotes de hasta 75 ids (en vez de un GET por fila): con CSVs de
+        // hasta ~1000 filas, un lookup por fila tardaría minutos y monopolizaría el rate limit
+        // global de Scryfall que comparten el resto de los endpoints de la app.
+        List<String> distinctScryfallIds = byKey.values().stream()
+                .map(ParsedSingleRow::scryfallId)
+                .distinct()
+                .toList();
+        Map<String, Map> pricesByCardId = scryfallService.getPricesBulk(distinctScryfallIds);
+
         int created = 0;
         int updatedExisting = 0;
 
@@ -591,6 +600,9 @@ public class ProductServiceImpl implements ProductService {
                 productRepository.save(product);
                 updatedExisting++;
             } else {
+                Map cardPrices = pricesByCardId.get(row.scryfallId());
+                BigDecimal usd = scryfallService.extractPrice(cardPrices, row.finish().getShortName());
+
                 Product product = new Product();
                 product.setName(row.name());
                 product.setDescription("");
@@ -602,7 +614,7 @@ public class ProductServiceImpl implements ProductService {
                 product.setCollectorNumber(row.collectorNumber());
                 product.setCondition(row.condition());
                 product.setLanguage(row.language());
-                product.setPrice(convertUsdToArs(row.purchaseUsd(), row.condition().getPriceMultiplier()));
+                product.setPrice(convertUsdToArs(usd, row.condition().getPriceMultiplier()));
                 product.setLastPriceUpdate(LocalDateTime.now());
                 productRepository.save(product);
                 created++;
@@ -617,12 +629,12 @@ public class ProductServiceImpl implements ProductService {
 
     private record ParsedSingleRow(
             String name, String setName, String collectorNumber, CardFinish finish,
-            int quantity, BigDecimal purchaseUsd, CardCondition condition, CardLanguage language,
+            int quantity, CardCondition condition, CardLanguage language,
             String scryfallId
     ) {
         ParsedSingleRow withAddedQuantity(int extra) {
             return new ParsedSingleRow(name, setName, collectorNumber, finish,
-                    quantity + extra, purchaseUsd, condition, language, scryfallId);
+                    quantity + extra, condition, language, scryfallId);
         }
     }
 
@@ -664,24 +676,11 @@ public class ProductServiceImpl implements ProductService {
             throw new IllegalArgumentException("Cantidad inválida");
         }
 
-        String currency = requireNonBlank(record, "Purchase price currency");
-        if (!currency.equalsIgnoreCase("USD")) {
-            throw new IllegalArgumentException("Moneda no soportada: " + currency + " (solo USD)");
-        }
-
-        BigDecimal purchaseUsd;
-        try {
-            purchaseUsd = new BigDecimal(requireNonBlank(record, "Purchase price"));
-            if (purchaseUsd.compareTo(BigDecimal.ZERO) <= 0) throw new NumberFormatException();
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("Precio de compra inválido");
-        }
-
         CardCondition condition = resolveCondition(requireNonBlank(record, "Condition"), conditions);
         CardLanguage language = resolveLanguage(requireNonBlank(record, "Language"), languages);
 
         return new ParsedSingleRow(name, setName, collectorNumber, finish, quantity,
-                purchaseUsd, condition, language, scryfallUuid.toString());
+                condition, language, scryfallUuid.toString());
     }
 
     private String requireNonBlank(CSVRecord record, String column) {
@@ -703,15 +702,40 @@ public class ProductServiceImpl implements ProductService {
         }
     }
 
-    // Ya no se acepta cualquier texto libre: la condición/idioma del CSV tiene que matchear
-    // (por short_name o long_name, sin distinguir mayúsculas, y "_" tratado como espacio)
-    // alguna fila de las tablas semilla; si no, la fila del CSV se rechaza con un error claro.
+    // ManaBox exporta 7 niveles de condición (mint, near_mint, excellent, good, light_played,
+    // played, poor -- de mejor a peor, sin "damaged") pero la tabla semilla solo tiene 5
+    // (NM/LP/MP/HP/DMG): se agrupan explícitamente por short_name acá, sin depender del
+    // long_name (que puede haber sido renombrado en la DB) para estos términos conocidos.
+    private static final Map<String, String> MANABOX_CONDITION_ALIASES = Map.ofEntries(
+            Map.entry("mint", "NM"),
+            Map.entry("near mint", "NM"),
+            Map.entry("excellent", "LP"),
+            Map.entry("good", "LP"),
+            Map.entry("light played", "MP"),
+            Map.entry("played", "HP"),
+            Map.entry("poor", "DMG")
+    );
+
+    // Para cualquier valor que no sea uno de los términos conocidos de ManaBox, se sigue
+    // aceptando texto que matchee (por short_name o long_name, sin distinguir mayúsculas,
+    // y "_" tratado como espacio) alguna fila de la tabla semilla. Si tampoco matchea eso
+    // (por ejemplo un término nuevo que ManaBox agregue más adelante), no se rechaza la fila:
+    // se asume NM y se deja un warning en el log para poder revisarlo a mano después.
     private CardCondition resolveCondition(String raw, List<CardCondition> conditions) {
         String normalized = raw.replace('_', ' ').trim();
+        String aliasedShortName = MANABOX_CONDITION_ALIASES.get(normalized.toLowerCase(Locale.ROOT));
+        String target = aliasedShortName != null ? aliasedShortName : normalized;
+
         return conditions.stream()
-                .filter(c -> c.getShortName().equalsIgnoreCase(normalized) || c.getLongName().equalsIgnoreCase(normalized))
+                .filter(c -> c.getShortName().equalsIgnoreCase(target) || c.getLongName().equalsIgnoreCase(target))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Condición no reconocida: " + raw));
+                .orElseGet(() -> {
+                    log.warn("[CSV Import] Condición no reconocida '{}', se usa NM como fallback", raw);
+                    return conditions.stream()
+                            .filter(c -> c.getShortName().equalsIgnoreCase("NM"))
+                            .findFirst()
+                            .orElseThrow(() -> new IllegalStateException("Condición semilla 'NM' no encontrada"));
+                });
     }
 
     private CardLanguage resolveLanguage(String raw, List<CardLanguage> languages) {
@@ -735,6 +759,15 @@ public class ProductServiceImpl implements ProductService {
         System.out.println("Iniciando actualización de precios... " + LocalDateTime.now());
         LocalDateTime limit = LocalDateTime.now().minusDays(3);
         List<Product> singles = productRepository.findSinglesNeedingUpdate(limit);
+
+        // Precios en lotes de hasta 75 ids (mismo motivo que en el import de CSV): evita un
+        // GET por producto cuando puede haber muchos pendientes de actualizar a la vez.
+        List<String> distinctScryfallIds = singles.stream()
+                .map(Product::getScryfallId)
+                .distinct()
+                .toList();
+        Map<String, Map> pricesByCardId = scryfallService.getPricesBulk(distinctScryfallIds);
+
         for (Product p : singles) {
             try {
                 // Saltear si el producto fue eliminado mientras esperaba en cola (ej. se vendió)
@@ -742,7 +775,7 @@ public class ProductServiceImpl implements ProductService {
                     continue;
                 }
                 String finishShortName = p.getFinish() != null ? p.getFinish().getShortName() : null;
-                BigDecimal usd = scryfallService.getPrice(p.getScryfallId(), finishShortName);
+                BigDecimal usd = scryfallService.extractPrice(pricesByCardId.get(p.getScryfallId()), finishShortName);
                 BigDecimal multiplier = p.getCondition() != null
                         ? p.getCondition().getPriceMultiplier()
                         : BigDecimal.ONE;
