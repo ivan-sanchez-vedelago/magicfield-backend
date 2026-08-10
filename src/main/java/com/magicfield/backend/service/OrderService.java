@@ -127,10 +127,10 @@ public class OrderService {
         orderTextAdmin.append("Teléfono: ").append(request.getCustomerPhone()).append("\n");
         orderTextAdmin.append("Email: ").append(request.getCustomerEmail()).append("\n\n");
         
-        orderTextAdmin.append("Método de pago: \n").append(toTitleCase(request.getPaymentMethod()));
+        orderTextAdmin.append("Método de pago: ").append(toTitleCase(request.getPaymentMethod()));
 
-        orderTextAdmin.append("Productos:\n");
-        orderTextClient.append("Productos:\n");
+        orderTextAdmin.append("\nProductos:\n");
+        orderTextClient.append("\nProductos:\n");
 
         double total = 0;
 
