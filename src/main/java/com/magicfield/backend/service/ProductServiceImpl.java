@@ -432,12 +432,65 @@ public class ProductServiceImpl implements ProductService {
         p.setStock(request.getStock());
 
         boolean isSingle = p.getCategory() != null && "SIN".equals(p.getCategory().getShortName());
-        if (!isSingle) {
+        if (isSingle) {
+            updateSingleFields(p, request);
+        } else {
             p.setPrice(applyRetailPricing(request.getPrice()));
         }
 
-        Product saved = productRepository.save(p);
-        return toResponse(saved);
+        try {
+            Product saved = productRepository.save(p);
+            return toResponse(saved);
+        } catch (DataIntegrityViolationException e) {
+            throw new IllegalArgumentException(
+                    "Ya existe otro producto con esa misma combinación de carta, finish, condición e idioma");
+        }
+    }
+
+    // Aplica los campos propios de un single (set/N° de coleccionista/condición/idioma/finish)
+    // que hasta ahora solo se podían fijar al crear -- el panel de edición los mandaba pero
+    // update() los ignoraba por completo. Si cambia el finish o la condición, recalcula el
+    // precio (mismo criterio que create()/updatePrices(): USD de Scryfall según el finish,
+    // multiplicado por el multiplicador de la condición) para no dejar un precio inconsistente
+    // con la variante recién elegida.
+    private void updateSingleFields(Product p, ProductRequest request) {
+        if (request.getSet() != null) {
+            p.setSet(request.getSet());
+        }
+        if (request.getCollectorNumber() != null) {
+            p.setCollectorNumber(request.getCollectorNumber());
+        }
+
+        boolean priceInputsChanged = false;
+
+        if (request.getFinishId() != null
+                && (p.getFinish() == null || !p.getFinish().getId().equals(request.getFinishId()))) {
+            CardFinish finish = cardFinishRepository.findById(request.getFinishId())
+                    .orElseThrow(() -> new IllegalArgumentException("Finish inválido: " + request.getFinishId()));
+            p.setFinish(finish);
+            priceInputsChanged = true;
+        }
+
+        if (request.getConditionId() != null
+                && (p.getCondition() == null || !p.getCondition().getId().equals(request.getConditionId()))) {
+            CardCondition condition = cardConditionRepository.findById(request.getConditionId())
+                    .orElseThrow(() -> new IllegalArgumentException("Condición inválida: " + request.getConditionId()));
+            p.setCondition(condition);
+            priceInputsChanged = true;
+        }
+
+        if (request.getLanguageId() != null
+                && (p.getLanguage() == null || !p.getLanguage().getId().equals(request.getLanguageId()))) {
+            CardLanguage language = cardLanguageRepository.findById(request.getLanguageId())
+                    .orElseThrow(() -> new IllegalArgumentException("Idioma inválido: " + request.getLanguageId()));
+            p.setLanguage(language);
+        }
+
+        if (priceInputsChanged && p.getScryfallId() != null && p.getFinish() != null && p.getCondition() != null) {
+            BigDecimal usd = scryfallService.getPrice(p.getScryfallId(), p.getFinish().getShortName());
+            p.setPrice(convertUsdToArs(usd, p.getCondition().getPriceMultiplier()));
+            p.setLastPriceUpdate(LocalDateTime.now());
+        }
     }
 
     @Override
