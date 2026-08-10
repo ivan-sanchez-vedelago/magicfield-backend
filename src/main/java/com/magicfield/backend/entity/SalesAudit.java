@@ -27,6 +27,9 @@ public class SalesAudit {
     private String set;
 
     @Column
+    private String collectorNumber;
+
+    @Column
     private String conditionName;
 
     @Column
@@ -134,6 +137,14 @@ public class SalesAudit {
 
     public void setSet(String set) {
         this.set = set;
+    }
+
+    public String getCollectorNumber() {
+        return collectorNumber;
+    }
+
+    public void setCollectorNumber(String collectorNumber) {
+        this.collectorNumber = collectorNumber;
     }
 
     public String getConditionName() {

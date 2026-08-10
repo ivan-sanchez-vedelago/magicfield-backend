@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -59,6 +60,26 @@ public class OrderService {
                 ? w
                 : Character.toUpperCase(w.charAt(0)) + w.substring(1))
             .collect(Collectors.joining(" "));
+    }
+
+    /**
+     * Set, N° de coleccionista, condición, idioma y finish de un single, en ese orden --
+     * mismo criterio y mismo orden que se muestra en carrito y en los paneles de pedidos,
+     * para que el mail de confirmación diga exactamente lo mismo que ve el usuario/admin.
+     * Vacío para no-singles.
+     */
+    private static String buildVariantSuffix(Product product) {
+        if (product.getCategory() == null || !"SIN".equals(product.getCategory().getShortName())) {
+            return "";
+        }
+        List<String> parts = new ArrayList<>();
+        if (product.getSet() != null) parts.add(product.getSet());
+        if (product.getCollectorNumber() != null) parts.add("#" + product.getCollectorNumber());
+        if (product.getCondition() != null) parts.add(product.getCondition().getLongName());
+        if (product.getLanguage() != null) parts.add(product.getLanguage().getLongName());
+        if (product.getFinish() != null) parts.add(product.getFinish().getLongName());
+        if (parts.isEmpty()) return "";
+        return " (" + String.join(" · ", parts) + ")";
     }
 
     @Transactional
@@ -125,8 +146,11 @@ public class OrderService {
             double subtotal = product.getPrice().intValue() * item.getQuantity();
             total += subtotal;
 
+            String variantSuffix = buildVariantSuffix(product);
+
             orderTextAdmin.append("- ")
                     .append(product.getName())
+                    .append(variantSuffix)
                     .append(" x")
                     .append(item.getQuantity())
                     .append(" = $")
@@ -134,6 +158,7 @@ public class OrderService {
                     .append("\n");
             orderTextClient.append("- ")
                     .append(product.getName())
+                    .append(variantSuffix)
                     .append(" x")
                     .append(item.getQuantity())
                     .append(" = $")
@@ -150,6 +175,7 @@ public class OrderService {
             audit.setProductName(product.getName());
             if (product.getCategory() != null && "SIN".equals(product.getCategory().getShortName())) {
                 audit.setSet(product.getSet());
+                audit.setCollectorNumber(product.getCollectorNumber());
                 audit.setConditionName(product.getCondition() != null ? product.getCondition().getLongName() : null);
                 audit.setLanguageName(product.getLanguage() != null ? product.getLanguage().getLongName() : null);
                 audit.setFinishName(product.getFinish() != null ? product.getFinish().getLongName() : null);
