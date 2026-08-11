@@ -386,9 +386,16 @@ public class ProductServiceImpl implements ProductService {
             return mergeStockInto(existing.get(), request.getStock());
         }
 
+        // Si el admin no completó (o vació) la descripción en el form, se recurre a Scryfall
+        // en vez de guardar la fila sin descripción -- mismo criterio que el import de CSV.
+        String description = request.getDescription();
+        if (description == null || description.isBlank()) {
+            description = scryfallService.getCardData(request.getScryfallId()).getDescription();
+        }
+
         Product p = new Product();
         p.setName(request.getName());
-        p.setDescription(request.getDescription());
+        p.setDescription(description != null ? description : "");
         p.setStock(request.getStock());
         p.setCategory(category);
         p.setScryfallId(request.getScryfallId());
@@ -579,14 +586,15 @@ public class ProductServiceImpl implements ProductService {
             }
         }
 
-        // Precio de mercado en lotes de hasta 75 ids (en vez de un GET por fila): con CSVs de
-        // hasta ~1000 filas, un lookup por fila tardaría minutos y monopolizaría el rate limit
-        // global de Scryfall que comparten el resto de los endpoints de la app.
+        // Precio + descripción en lotes de hasta 75 ids (en vez de un GET por fila): con CSVs
+        // de hasta ~1000 filas, un lookup por fila tardaría minutos y monopolizaría el rate
+        // limit global de Scryfall que comparten el resto de los endpoints de la app.
         List<String> distinctScryfallIds = byKey.values().stream()
                 .map(ParsedSingleRow::scryfallId)
                 .distinct()
                 .toList();
-        Map<String, Map> pricesByCardId = scryfallService.getPricesBulk(distinctScryfallIds);
+        Map<String, ScryfallService.ScryfallCollectionData> dataByCardId =
+                scryfallService.getCollectionDataBulk(distinctScryfallIds);
 
         int created = 0;
         int updatedExisting = 0;
@@ -600,12 +608,15 @@ public class ProductServiceImpl implements ProductService {
                 productRepository.save(product);
                 updatedExisting++;
             } else {
-                Map cardPrices = pricesByCardId.get(row.scryfallId());
-                BigDecimal usd = scryfallService.extractPrice(cardPrices, row.finish().getShortName());
+                ScryfallService.ScryfallCollectionData cardData = dataByCardId.get(row.scryfallId());
+                BigDecimal usd = scryfallService.extractPrice(
+                        cardData != null ? cardData.getPrices() : null, row.finish().getShortName());
+                String description = cardData != null && cardData.getDescription() != null
+                        ? cardData.getDescription() : "";
 
                 Product product = new Product();
                 product.setName(row.name());
-                product.setDescription("");
+                product.setDescription(description);
                 product.setStock(row.quantity());
                 product.setCategory(singleCategory);
                 product.setScryfallId(row.scryfallId());
@@ -766,7 +777,8 @@ public class ProductServiceImpl implements ProductService {
                 .map(Product::getScryfallId)
                 .distinct()
                 .toList();
-        Map<String, Map> pricesByCardId = scryfallService.getPricesBulk(distinctScryfallIds);
+        Map<String, ScryfallService.ScryfallCollectionData> dataByCardId =
+                scryfallService.getCollectionDataBulk(distinctScryfallIds);
 
         for (Product p : singles) {
             try {
@@ -775,7 +787,9 @@ public class ProductServiceImpl implements ProductService {
                     continue;
                 }
                 String finishShortName = p.getFinish() != null ? p.getFinish().getShortName() : null;
-                BigDecimal usd = scryfallService.extractPrice(pricesByCardId.get(p.getScryfallId()), finishShortName);
+                ScryfallService.ScryfallCollectionData cardData = dataByCardId.get(p.getScryfallId());
+                BigDecimal usd = scryfallService.extractPrice(
+                        cardData != null ? cardData.getPrices() : null, finishShortName);
                 BigDecimal multiplier = p.getCondition() != null
                         ? p.getCondition().getPriceMultiplier()
                         : BigDecimal.ONE;

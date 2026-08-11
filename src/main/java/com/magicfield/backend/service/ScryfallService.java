@@ -68,15 +68,13 @@ public class ScryfallService {
     }
 
     /**
-     * Precios de mercado para muchas cartas en pocas llamadas: Scryfall permite hasta 75
-     * identificadores por request en /cards/collection, en vez de un GET por carta (útil para
-     * el import de CSV, donde puede haber hasta ~1000 filas).
-     * Devuelve, por scryfallId, el mapa crudo de precios de Scryfall (para resolver el finish
-     * correcto de cada fila con extractPrice) -- las cartas no encontradas simplemente no
-     * aparecen en el resultado.
+     * Precios + descripción de mercado para muchas cartas en pocas llamadas: Scryfall permite
+     * hasta 75 identificadores por request en /cards/collection, en vez de un GET por carta
+     * (útil para el import de CSV, donde puede haber hasta ~1000 filas, y para la actualización
+     * periódica de precios). Las cartas no encontradas simplemente no aparecen en el resultado.
      */
-    public Map<String, Map> getPricesBulk(List<String> scryfallIds) {
-        Map<String, Map> pricesByCardId = new HashMap<>();
+    public Map<String, ScryfallCollectionData> getCollectionDataBulk(List<String> scryfallIds) {
+        Map<String, ScryfallCollectionData> byCardId = new HashMap<>();
         for (List<String> chunk : chunk(scryfallIds, 75)) {
             try {
                 acquireRateLimit();
@@ -97,16 +95,29 @@ public class ScryfallService {
 
                 for (Map card : data) {
                     Object id = card.get("id");
+                    if (!(id instanceof String cardId)) continue;
                     Object prices = card.get("prices");
-                    if (id instanceof String cardId && prices instanceof Map priceMap) {
-                        pricesByCardId.put(cardId, priceMap);
-                    }
+                    String description = parseCardData(card).getDescription();
+                    byCardId.put(cardId, new ScryfallCollectionData(prices instanceof Map ? (Map) prices : null, description));
                 }
             } catch (Exception e) {
-                log.error("[Scryfall] error en getPricesBulk para un lote de {} ids: {}", chunk.size(), e.getMessage());
+                log.error("[Scryfall] error en getCollectionDataBulk para un lote de {} ids: {}", chunk.size(), e.getMessage());
             }
         }
-        return pricesByCardId;
+        return byCardId;
+    }
+
+    public static class ScryfallCollectionData {
+        private final Map prices;
+        private final String description;
+
+        public ScryfallCollectionData(Map prices, String description) {
+            this.prices = prices;
+            this.description = description;
+        }
+
+        public Map getPrices() { return prices; }
+        public String getDescription() { return description; }
     }
 
     // Scryfall no tiene un precio "usd_glossy" propio: usamos el de foil como
@@ -144,52 +155,72 @@ public class ScryfallService {
 
     /**
      * Imágenes + texto de reglas (oracle text) de una carta, en una sola llamada a Scryfall.
-     * El texto de reglas se usa como "descripción" del single en vez de guardar una propia en
-     * la base — así queda siempre actualizado y no depende de si el producto se creó a mano o
-     * se importó por CSV (donde no hay ningún dato de descripción disponible).
+     * El texto de reglas se usa como "descripción" del single al mostrarlo (siempre actualizada,
+     * sin depender de lo guardado en la base) -- ver parseCardData para el fallback a flavor
+     * text en cartas sin habilidades.
      */
     public ScryfallCardData getCardData(String scryfallId) {
-        List<String> urls = new ArrayList<>();
-        String description = null;
         try {
             acquireRateLimit();
             String url = "https://api.scryfall.com/cards/" + scryfallId;
             Map response = restTemplate.getForObject(url, Map.class);
-
-            // Carta con dos caras
-            Object faces = response.get("card_faces");
-            if (faces instanceof List<?> faceList) {
-                List<String> texts = new ArrayList<>();
-                for (Object face : faceList) {
-                    if (face instanceof Map<?, ?> faceMap) {
-                        Map<?, ?> imageUris = (Map<?, ?>) faceMap.get("image_uris");
-                        if (imageUris != null) {
-                            String normal = (String) imageUris.get("normal");
-                            if (normal != null) urls.add(normal);
-                        }
-                        Object oracleText = faceMap.get("oracle_text");
-                        if (oracleText instanceof String s && !s.isBlank()) texts.add(s);
-                    }
-                }
-                if (!texts.isEmpty()) description = String.join("\n---\n", texts);
-            }
-
-            // Carta normal (una cara)
-            if (urls.isEmpty()) {
-                Map<?, ?> imageUris = (Map<?, ?>) response.get("image_uris");
-                if (imageUris != null) {
-                    String normal = (String) imageUris.get("normal");
-                    if (normal != null) urls.add(normal);
-                }
-            }
-            if (description == null) {
-                Object oracleText = response.get("oracle_text");
-                if (oracleText instanceof String s && !s.isBlank()) description = s;
-            }
-
+            return parseCardData(response);
         } catch (Exception e) {
             log.error("[Scryfall] error en getCardData scryfallId={}: {}", scryfallId, e.getMessage());
+            return new ScryfallCardData(new ArrayList<>(), null);
         }
+    }
+
+    // Descripción = oracle text (texto de reglas). Si la carta no tiene (p.ej. una criatura
+    // "vainilla" sin habilidades), se usa el flavor text como respaldo para no dejarla sin
+    // ningún texto -- mejor eso que nada, tanto para mostrarla como para poder buscarla.
+    private ScryfallCardData parseCardData(Map response) {
+        List<String> urls = new ArrayList<>();
+        String description = null;
+
+        // Carta con dos caras
+        Object faces = response.get("card_faces");
+        if (faces instanceof List<?> faceList) {
+            List<String> oracleTexts = new ArrayList<>();
+            List<String> flavorTexts = new ArrayList<>();
+            for (Object face : faceList) {
+                if (face instanceof Map<?, ?> faceMap) {
+                    Map<?, ?> imageUris = (Map<?, ?>) faceMap.get("image_uris");
+                    if (imageUris != null) {
+                        String normal = (String) imageUris.get("normal");
+                        if (normal != null) urls.add(normal);
+                    }
+                    Object oracleText = faceMap.get("oracle_text");
+                    if (oracleText instanceof String s && !s.isBlank()) oracleTexts.add(s);
+                    Object flavorText = faceMap.get("flavor_text");
+                    if (flavorText instanceof String s && !s.isBlank()) flavorTexts.add(s);
+                }
+            }
+            if (!oracleTexts.isEmpty()) {
+                description = String.join("\n---\n", oracleTexts);
+            } else if (!flavorTexts.isEmpty()) {
+                description = String.join("\n---\n", flavorTexts);
+            }
+        }
+
+        // Carta normal (una cara)
+        if (urls.isEmpty()) {
+            Map<?, ?> imageUris = (Map<?, ?>) response.get("image_uris");
+            if (imageUris != null) {
+                String normal = (String) imageUris.get("normal");
+                if (normal != null) urls.add(normal);
+            }
+        }
+        if (description == null) {
+            Object oracleText = response.get("oracle_text");
+            if (oracleText instanceof String s && !s.isBlank()) {
+                description = s;
+            } else {
+                Object flavorText = response.get("flavor_text");
+                if (flavorText instanceof String s && !s.isBlank()) description = s;
+            }
+        }
+
         return new ScryfallCardData(urls, description);
     }
 
