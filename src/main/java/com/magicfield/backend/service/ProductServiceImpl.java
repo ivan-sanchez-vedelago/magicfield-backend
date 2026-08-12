@@ -288,9 +288,19 @@ public class ProductServiceImpl implements ProductService {
         CardCondition condition = p.getCondition();
         CardLanguage language = p.getLanguage();
         CardFinish finish = p.getFinish();
+
+        List<String> variantTagLabels = p.getVariantTagsList().stream()
+                .map(tag -> ScryfallService.VARIANT_TAG_LABELS.getOrDefault(tag, tag))
+                .toList();
+        String displayName = variantTagLabels.isEmpty()
+                ? p.getName()
+                : p.getName() + variantTagLabels.stream().map(t -> " (" + t + ")").collect(Collectors.joining());
+
         return new ProductResponse(
                 p.getId(),
                 p.getName(),
+                displayName,
+                variantTagLabels,
                 description,
                 p.getPrice(),
                 p.getStock(),
@@ -386,10 +396,14 @@ public class ProductServiceImpl implements ProductService {
             return mergeStockInto(existing.get(), request.getStock());
         }
 
+        // Un solo GET a Scryfall para todo lo que hace falta al crear la fila (antes eran 2-3
+        // llamadas sueltas): precio, descripción de respaldo, finishes disponibles y tags de
+        // variante de arte/marco (borderless, extended art, etc.) vienen en la misma respuesta.
+        ScryfallService.ScryfallCollectionData cardData = scryfallService.getFullCardData(request.getScryfallId());
+
         // La carta puede no tener las 4 variantes de finish (hay promos foil-only, por
         // ejemplo): se valida contra lo que Scryfall reporta antes de crear la fila.
-        List<String> availableFinishes = scryfallService.getFinishes(request.getScryfallId());
-        if (!scryfallService.isFinishAvailable(availableFinishes, finish.getShortName())) {
+        if (!scryfallService.isFinishAvailable(cardData.getFinishes(), finish.getShortName())) {
             throw new IllegalArgumentException(
                     "La carta no tiene el finish '" + finish.getShortName() + "' disponible según Scryfall");
         }
@@ -398,7 +412,7 @@ public class ProductServiceImpl implements ProductService {
         // en vez de guardar la fila sin descripción -- mismo criterio que el import de CSV.
         String description = request.getDescription();
         if (description == null || description.isBlank()) {
-            description = scryfallService.getCardData(request.getScryfallId()).getDescription();
+            description = cardData.getDescription();
         }
 
         Product p = new Product();
@@ -412,8 +426,9 @@ public class ProductServiceImpl implements ProductService {
         p.setCollectorNumber(request.getCollectorNumber());
         p.setCondition(condition);
         p.setLanguage(language);
+        p.setVariantTags(cardData.getVariantTags());
 
-        BigDecimal usd = scryfallService.getPrice(request.getScryfallId(), finish.getShortName());
+        BigDecimal usd = scryfallService.extractPrice(cardData.getPrices(), finish.getShortName());
         p.setPrice(convertUsdToArs(usd, condition.getPriceMultiplier()));
         p.setLastPriceUpdate(LocalDateTime.now());
 
@@ -477,14 +492,17 @@ public class ProductServiceImpl implements ProductService {
         }
 
         boolean priceInputsChanged = false;
+        // Snapshot de Scryfall reutilizado para validar el finish nuevo y, si hace falta,
+        // recalcular el precio -- un solo GET en vez de uno para validar y otro para el precio.
+        ScryfallService.ScryfallCollectionData finishChangeSnapshot = null;
 
         if (request.getFinishId() != null
                 && (p.getFinish() == null || !p.getFinish().getId().equals(request.getFinishId()))) {
             CardFinish finish = cardFinishRepository.findById(request.getFinishId())
                     .orElseThrow(() -> new IllegalArgumentException("Finish inválido: " + request.getFinishId()));
             if (p.getScryfallId() != null) {
-                List<String> availableFinishes = scryfallService.getFinishes(p.getScryfallId());
-                if (!scryfallService.isFinishAvailable(availableFinishes, finish.getShortName())) {
+                finishChangeSnapshot = scryfallService.getFullCardData(p.getScryfallId());
+                if (!scryfallService.isFinishAvailable(finishChangeSnapshot.getFinishes(), finish.getShortName())) {
                     throw new IllegalArgumentException(
                             "La carta no tiene el finish '" + finish.getShortName() + "' disponible según Scryfall");
                 }
@@ -509,7 +527,9 @@ public class ProductServiceImpl implements ProductService {
         }
 
         if (priceInputsChanged && p.getScryfallId() != null && p.getFinish() != null && p.getCondition() != null) {
-            BigDecimal usd = scryfallService.getPrice(p.getScryfallId(), p.getFinish().getShortName());
+            BigDecimal usd = finishChangeSnapshot != null
+                    ? scryfallService.extractPrice(finishChangeSnapshot.getPrices(), p.getFinish().getShortName())
+                    : scryfallService.getPrice(p.getScryfallId(), p.getFinish().getShortName());
             p.setPrice(convertUsdToArs(usd, p.getCondition().getPriceMultiplier()));
             p.setLastPriceUpdate(LocalDateTime.now());
         }
@@ -640,6 +660,7 @@ public class ProductServiceImpl implements ProductService {
                 product.setCollectorNumber(row.collectorNumber());
                 product.setCondition(row.condition());
                 product.setLanguage(row.language());
+                product.setVariantTags(cardData != null ? cardData.getVariantTags() : null);
                 product.setPrice(convertUsdToArs(usd, row.condition().getPriceMultiplier()));
                 product.setLastPriceUpdate(LocalDateTime.now());
                 productRepository.save(product);
@@ -873,5 +894,36 @@ public class ProductServiceImpl implements ProductService {
         }
 
         return buildResponse(p, description, imageUrls);
+    }
+
+    // Completa variantTags para singles creados antes de que existiera esta funcionalidad (o
+    // cuyo cálculo falló en su momento). Sin job periódico a propósito: el frame de una
+    // impresión de Scryfall es inmutable, así que corriendo esto una vez alcanza.
+    @Override
+    @Transactional
+    public int backfillVariantTags() {
+        List<Product> singles = productRepository.findSinglesMissingVariantTags();
+        if (singles.isEmpty()) {
+            return 0;
+        }
+
+        List<String> distinctScryfallIds = singles.stream()
+                .map(Product::getScryfallId)
+                .distinct()
+                .toList();
+        Map<String, ScryfallService.ScryfallCollectionData> dataByCardId =
+                scryfallService.getCollectionDataBulk(distinctScryfallIds);
+
+        int updated = 0;
+        for (Product p : singles) {
+            ScryfallService.ScryfallCollectionData cardData = dataByCardId.get(p.getScryfallId());
+            if (cardData == null) continue;
+            p.setVariantTags(cardData.getVariantTags());
+            productRepository.save(p);
+            updated++;
+        }
+
+        log.info("[Backfill variantTags] {} de {} singles pendientes actualizados", updated, singles.size());
+        return updated;
     }
 }

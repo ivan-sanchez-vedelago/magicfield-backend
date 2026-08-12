@@ -40,4 +40,8 @@ public interface ProductService {
     void decreaseStock(UUID productId, int quantity);
 
     CsvImportResult importSinglesFromCsv(MultipartFile file) throws IOException;
+
+    // Completa variantTags para singles creados antes de que existiera esta funcionalidad.
+    // Devuelve la cantidad de productos actualizados.
+    int backfillVariantTags();
 }

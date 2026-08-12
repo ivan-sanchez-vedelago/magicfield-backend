@@ -36,6 +36,18 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     """)
     List<Product> findSinglesNeedingUpdate(LocalDateTime limitDate);
 
+    // Singles creados antes de que existiera variantTags (o cuyo cálculo falló) -- ver
+    // ProductServiceImpl.backfillVariantTags(). A diferencia del precio, esto no tiene un job
+    // periódico: el frame de una impresión es inmutable, así que alcanza con completarlo una
+    // vez por producto.
+    @Query("""
+        SELECT p FROM Product p
+        WHERE p.category.shortName = 'SIN'
+        AND p.variantTags IS NULL
+        AND p.scryfallId IS NOT NULL
+    """)
+    List<Product> findSinglesMissingVariantTags();
+
     @Query(value = """
         SELECT p FROM Product p
         LEFT JOIN FETCH p.category c

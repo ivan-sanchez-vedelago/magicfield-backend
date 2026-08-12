@@ -3,6 +3,7 @@ package com.magicfield.backend.entity;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -59,6 +60,14 @@ public class Product {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "language_id")
     private CardLanguage language;
+
+    // Códigos de variante de arte/marco (BORDERLESS, EXTENDED_ART, etc. -- ver
+    // ScryfallService.VARIANT_TAG_LABELS), separados por coma. Calculado una sola vez al crear
+    // el single: el frame de una impresión puntual de Scryfall es inmutable, nunca hace falta
+    // recalcularlo como sí pasa con el precio. Null = todavía no calculado (fila vieja, pendiente
+    // de backfill) o la carta no tiene ninguna variante de este tipo.
+    @Column
+    private String variantTags;
 
     @OneToMany(
         mappedBy = "product",
@@ -189,5 +198,22 @@ public class Product {
 
     public void setImages(List<Image> images) {
         this.images = images;
+    }
+
+    public String getVariantTags() {
+        return variantTags;
+    }
+
+    public void setVariantTags(String variantTags) {
+        this.variantTags = variantTags;
+    }
+
+    public void setVariantTags(List<String> tags) {
+        this.variantTags = (tags == null || tags.isEmpty()) ? null : String.join(",", tags);
+    }
+
+    public List<String> getVariantTagsList() {
+        if (variantTags == null || variantTags.isBlank()) return List.of();
+        return Arrays.asList(variantTags.split(","));
     }
 }

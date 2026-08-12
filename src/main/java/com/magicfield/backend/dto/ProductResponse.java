@@ -9,6 +9,13 @@ public class ProductResponse {
 
     private UUID id;
     private String name;
+    // Nombre + tags de variante concatenados para mostrar (ej. "Lightning Bolt (Borderless)
+    // (Extended Art)"). `name` se mantiene puro a propósito -- ver variantTags -- porque viaja
+    // de vuelta tal cual en el request de edición y no debe llevar el sufijo pegado.
+    private String displayName;
+    // Labels legibles de la variante de arte/marco (ej. ["Borderless", "Extended Art"]),
+    // vacío si la carta no tiene ninguna. Ver Product.variantTags y ScryfallService.VARIANT_TAG_LABELS.
+    private List<String> variantTags;
     private String description;
     private BigDecimal price;
     private Integer stock;
@@ -43,6 +50,8 @@ public class ProductResponse {
     public ProductResponse(
             UUID id,
             String name,
+            String displayName,
+            List<String> variantTags,
             String description,
             BigDecimal price,
             Integer stock,
@@ -63,6 +72,8 @@ public class ProductResponse {
     ) {
         this.id = id;
         this.name = name;
+        this.displayName = displayName;
+        this.variantTags = variantTags;
         this.description = description;
         this.price = price;
         this.stock = stock;
@@ -88,6 +99,14 @@ public class ProductResponse {
 
     public String getName() {
         return name;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public List<String> getVariantTags() {
+        return variantTags;
     }
 
     public String getDescription() {
@@ -180,6 +199,14 @@ public class ProductResponse {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
+    }
+
+    public void setVariantTags(List<String> variantTags) {
+        this.variantTags = variantTags;
     }
 
     public void setDescription(String description) {

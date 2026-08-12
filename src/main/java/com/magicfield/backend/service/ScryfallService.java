@@ -12,6 +12,7 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Service
@@ -76,19 +77,22 @@ public class ScryfallService {
             String url = "https://api.scryfall.com/cards/" + scryfallId;
             Map response = restTemplate.getForObject(url, Map.class);
             if (response == null) return List.of();
-
-            Object finishes = response.get("finishes");
-            if (finishes instanceof List<?> list) {
-                return list.stream()
-                        .filter(f -> f instanceof String)
-                        .map(f -> ((String) f).toLowerCase())
-                        .toList();
-            }
-            return List.of();
+            return extractFinishes(response);
         } catch (Exception e) {
             log.error("[Scryfall] error en getFinishes scryfallId={}: {}", scryfallId, e.getMessage());
             return List.of();
         }
+    }
+
+    private List<String> extractFinishes(Map response) {
+        Object finishes = response.get("finishes");
+        if (finishes instanceof List<?> list) {
+            return list.stream()
+                    .filter(f -> f instanceof String)
+                    .map(f -> ((String) f).toLowerCase())
+                    .toList();
+        }
+        return List.of();
     }
 
     // Scryfall no reporta "glossy" como finish propio -- lo trata como una variante de foil
@@ -101,11 +105,50 @@ public class ScryfallService {
         return scryfallFinishes.contains(key);
     }
 
+    // Vocabulario curado de variantes de arte/marco (independiente de finish): Scryfall trae
+    // muchos más `frame_effects` de los que interesa mostrar acá (la mayoría son detalles del
+    // renderizado del frame estándar -- "legendary", "devoid", "colorshifted", etc. -- no
+    // versiones distintas que alguien busque comprar). Solo se mapean las que sí son variantes
+    // coleccionables reconocibles. Se guardan como códigos estables (ver Product.variantTags);
+    // las labels de VARIANT_TAG_LABELS son solo para mostrar y se pueden retocar sin migrar datos.
+    private static final Map<String, String> FRAME_EFFECT_TAGS = Map.of(
+            "extendedart", "EXTENDED_ART",
+            "showcase", "SHOWCASE"
+    );
+
+    public static final Map<String, String> VARIANT_TAG_LABELS = Map.of(
+            "BORDERLESS", "Borderless",
+            "EXTENDED_ART", "Extended Art",
+            "SHOWCASE", "Showcase",
+            "FULL_ART", "Full Art"
+    );
+
+    private List<String> extractVariantTags(Map response) {
+        List<String> tags = new ArrayList<>();
+        if ("borderless".equals(response.get("border_color"))) {
+            tags.add("BORDERLESS");
+        }
+        Object frameEffects = response.get("frame_effects");
+        if (frameEffects instanceof List<?> list) {
+            for (Object fe : list) {
+                if (fe instanceof String s) {
+                    String tag = FRAME_EFFECT_TAGS.get(s.toLowerCase(Locale.ROOT));
+                    if (tag != null && !tags.contains(tag)) tags.add(tag);
+                }
+            }
+        }
+        if (Boolean.TRUE.equals(response.get("full_art"))) {
+            tags.add("FULL_ART");
+        }
+        return tags;
+    }
+
     /**
-     * Precios + descripción de mercado para muchas cartas en pocas llamadas: Scryfall permite
-     * hasta 75 identificadores por request en /cards/collection, en vez de un GET por carta
-     * (útil para el import de CSV, donde puede haber hasta ~1000 filas, y para la actualización
-     * periódica de precios). Las cartas no encontradas simplemente no aparecen en el resultado.
+     * Precios + descripción + tags de variante de arte/marco de mercado para muchas cartas en
+     * pocas llamadas: Scryfall permite hasta 75 identificadores por request en /cards/collection,
+     * en vez de un GET por carta (útil para el import de CSV, donde puede haber hasta ~1000
+     * filas, para la actualización periódica de precios, y para el backfill de singles ya
+     * creados sin variantTags). Las cartas no encontradas simplemente no aparecen en el resultado.
      */
     public Map<String, ScryfallCollectionData> getCollectionDataBulk(List<String> scryfallIds) {
         Map<String, ScryfallCollectionData> byCardId = new HashMap<>();
@@ -130,9 +173,7 @@ public class ScryfallService {
                 for (Map card : data) {
                     Object id = card.get("id");
                     if (!(id instanceof String cardId)) continue;
-                    Object prices = card.get("prices");
-                    String description = parseCardData(card).getDescription();
-                    byCardId.put(cardId, new ScryfallCollectionData(prices instanceof Map ? (Map) prices : null, description));
+                    byCardId.put(cardId, buildSnapshot(card));
                 }
             } catch (Exception e) {
                 log.error("[Scryfall] error en getCollectionDataBulk para un lote de {} ids: {}", chunk.size(), e.getMessage());
@@ -141,17 +182,49 @@ public class ScryfallService {
         return byCardId;
     }
 
+    /**
+     * Igual que getCollectionDataBulk pero para una sola carta -- consolida en un único GET lo
+     * que antes eran 2-3 llamadas sueltas (getFinishes + getCardData + getPrice) en el alta/
+     * edición manual de un single, ya que las 4 cosas vienen en la misma respuesta de Scryfall.
+     */
+    public ScryfallCollectionData getFullCardData(String scryfallId) {
+        try {
+            acquireRateLimit();
+            String url = "https://api.scryfall.com/cards/" + scryfallId;
+            Map response = restTemplate.getForObject(url, Map.class);
+            if (response == null) return new ScryfallCollectionData(null, null, List.of(), List.of());
+            return buildSnapshot(response);
+        } catch (Exception e) {
+            log.error("[Scryfall] error en getFullCardData scryfallId={}: {}", scryfallId, e.getMessage());
+            return new ScryfallCollectionData(null, null, List.of(), List.of());
+        }
+    }
+
+    private ScryfallCollectionData buildSnapshot(Map card) {
+        Object prices = card.get("prices");
+        String description = parseCardData(card).getDescription();
+        List<String> variantTags = extractVariantTags(card);
+        List<String> finishes = extractFinishes(card);
+        return new ScryfallCollectionData(prices instanceof Map ? (Map) prices : null, description, variantTags, finishes);
+    }
+
     public static class ScryfallCollectionData {
         private final Map prices;
         private final String description;
+        private final List<String> variantTags;
+        private final List<String> finishes;
 
-        public ScryfallCollectionData(Map prices, String description) {
+        public ScryfallCollectionData(Map prices, String description, List<String> variantTags, List<String> finishes) {
             this.prices = prices;
             this.description = description;
+            this.variantTags = variantTags;
+            this.finishes = finishes;
         }
 
         public Map getPrices() { return prices; }
         public String getDescription() { return description; }
+        public List<String> getVariantTags() { return variantTags; }
+        public List<String> getFinishes() { return finishes; }
     }
 
     // Scryfall no tiene un precio "usd_glossy" propio: usamos el de foil como

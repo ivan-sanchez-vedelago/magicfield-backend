@@ -160,4 +160,12 @@ public class ProductController {
         CsvImportResult result = productService.importSinglesFromCsv(file);
         return ResponseEntity.ok(result);
     }
+
+    // Completa variantTags (borderless/extended art/etc.) para singles creados antes de que
+    // existiera esta funcionalidad. Se corre a mano una vez, no hace falta repetirlo salvo que
+    // hayan quedado pendientes por una falla transitoria de Scryfall.
+    @PostMapping("/backfill-variant-tags")
+    public ResponseEntity<Integer> backfillVariantTags() {
+        return ResponseEntity.ok(productService.backfillVariantTags());
+    }
 }
