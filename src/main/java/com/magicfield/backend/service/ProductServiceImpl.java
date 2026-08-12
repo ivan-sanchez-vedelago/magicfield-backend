@@ -819,7 +819,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     // El multiplicador de condición se aplica ANTES del redondeo psicológico, así cada
-    // condición obtiene su propio piso de $1200 y su propio redondeo a ".99" en vez de
+    // condición obtiene su propio piso de $800 y su propio redondeo a ".99" en vez de
     // escalar un único precio NM ya redondeado.
     private BigDecimal convertUsdToArs(BigDecimal usd, BigDecimal conditionMultiplier) {
         if (usd == null) return BigDecimal.ZERO;
@@ -835,8 +835,8 @@ public class ProductServiceImpl implements ProductService {
     private BigDecimal applyRetailPricing(BigDecimal price) {
         if (price == null) return BigDecimal.ZERO;
 
-        // Piso mínimo de 1200 ARS
-        BigDecimal minPrice = new BigDecimal("1200");
+        // Piso mínimo de 800 ARS
+        BigDecimal minPrice = new BigDecimal("800");
         if (price.compareTo(minPrice) < 0) {
             price = minPrice;
         }
