@@ -386,6 +386,14 @@ public class ProductServiceImpl implements ProductService {
             return mergeStockInto(existing.get(), request.getStock());
         }
 
+        // La carta puede no tener las 4 variantes de finish (hay promos foil-only, por
+        // ejemplo): se valida contra lo que Scryfall reporta antes de crear la fila.
+        List<String> availableFinishes = scryfallService.getFinishes(request.getScryfallId());
+        if (!scryfallService.isFinishAvailable(availableFinishes, finish.getShortName())) {
+            throw new IllegalArgumentException(
+                    "La carta no tiene el finish '" + finish.getShortName() + "' disponible según Scryfall");
+        }
+
         // Si el admin no completó (o vació) la descripción en el form, se recurre a Scryfall
         // en vez de guardar la fila sin descripción -- mismo criterio que el import de CSV.
         String description = request.getDescription();
@@ -474,6 +482,13 @@ public class ProductServiceImpl implements ProductService {
                 && (p.getFinish() == null || !p.getFinish().getId().equals(request.getFinishId()))) {
             CardFinish finish = cardFinishRepository.findById(request.getFinishId())
                     .orElseThrow(() -> new IllegalArgumentException("Finish inválido: " + request.getFinishId()));
+            if (p.getScryfallId() != null) {
+                List<String> availableFinishes = scryfallService.getFinishes(p.getScryfallId());
+                if (!scryfallService.isFinishAvailable(availableFinishes, finish.getShortName())) {
+                    throw new IllegalArgumentException(
+                            "La carta no tiene el finish '" + finish.getShortName() + "' disponible según Scryfall");
+                }
+            }
             p.setFinish(finish);
             priceInputsChanged = true;
         }

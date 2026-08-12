@@ -67,6 +67,40 @@ public class ScryfallService {
         }
     }
 
+    // Finishes reales que existen para esa impresión puntual (ej. ["nonfoil","foil"]): una
+    // carta no necesariamente tiene las 4 variantes de card_finish (hay promos foil-only,
+    // por ejemplo). Se usa para validar el finish elegido al crear/editar un single a mano.
+    public List<String> getFinishes(String scryfallId) {
+        try {
+            acquireRateLimit();
+            String url = "https://api.scryfall.com/cards/" + scryfallId;
+            Map response = restTemplate.getForObject(url, Map.class);
+            if (response == null) return List.of();
+
+            Object finishes = response.get("finishes");
+            if (finishes instanceof List<?> list) {
+                return list.stream()
+                        .filter(f -> f instanceof String)
+                        .map(f -> ((String) f).toLowerCase())
+                        .toList();
+            }
+            return List.of();
+        } catch (Exception e) {
+            log.error("[Scryfall] error en getFinishes scryfallId={}: {}", scryfallId, e.getMessage());
+            return List.of();
+        }
+    }
+
+    // Scryfall no reporta "glossy" como finish propio -- lo trata como una variante de foil
+    // (mismo criterio que ya usa extractPrice, que tampoco tiene un precio "usd_glossy" separado).
+    // Si no se pudo obtener el dato de Scryfall (lista vacía), no se bloquea: mejor permitir la
+    // operación que romperla por una falla transitoria de una API externa.
+    public boolean isFinishAvailable(List<String> scryfallFinishes, String finishShortName) {
+        if (scryfallFinishes == null || scryfallFinishes.isEmpty()) return true;
+        String key = "GLOSSY".equalsIgnoreCase(finishShortName) ? "foil" : finishShortName.toLowerCase();
+        return scryfallFinishes.contains(key);
+    }
+
     /**
      * Precios + descripción de mercado para muchas cartas en pocas llamadas: Scryfall permite
      * hasta 75 identificadores por request en /cards/collection, en vez de un GET por carta
