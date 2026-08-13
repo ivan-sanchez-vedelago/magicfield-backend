@@ -24,6 +24,9 @@ public class SalesAudit {
     // strings planos, no FK, para que el registro de auditoría no cambie si luego se
     // editan/borran las tablas de condición/idioma/finish). Null para no-singles.
     @Column
+    private String variantTags;
+
+    @Column
     private String set;
 
     @Column
@@ -129,6 +132,14 @@ public class SalesAudit {
 
     public void setProductName(String productName) {
         this.productName = productName;
+    }
+
+    public String getVariantTags() {
+        return variantTags;
+    }
+
+    public void setVariantTags(String variantTags) {
+        this.variantTags = variantTags;
     }
 
     public String getSet() {
