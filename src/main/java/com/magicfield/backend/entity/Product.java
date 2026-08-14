@@ -39,13 +39,19 @@ public class Product {
     @JoinColumn(name = "category_id")
     private Category category;
 
-    @Column(nullable = false, updatable = false)
+    // Nombre de columna explícito (aunque coincide con lo que ya generaba la naming strategy):
+    // Hibernate 6.2 no resuelve columnas implícitas al procesar @Index/columnList si no hay un
+    // @Column(name=...) declarado, y rompía el arranque con "column 'created_at' was not found"
+    // -- ver idx_product_created_at más arriba. No cambia el nombre real de la columna en la BD.
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Column
     private LocalDateTime lastPriceUpdate;
 
-    @Column
+    // Mismo motivo que createdAt: nombre explícito para que idx_product_scryfall_finish
+    // pueda resolverlo al construir los metadatos.
+    @Column(name = "scryfall_id")
     private String scryfallId;
 
     @ManyToOne(fetch = FetchType.LAZY)
