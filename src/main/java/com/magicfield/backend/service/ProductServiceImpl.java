@@ -122,10 +122,30 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public List<ProductResponse> listAll() {
-        return productRepository.findAll()
+        List<Product> inStock = productRepository.findAll()
                 .stream()
                 .filter(p -> p.getStock() > 0)
-                .map(this::toResponse)
+                .collect(Collectors.toList());
+
+        // Bulk-load images for non-SIN products to eliminate N+1 queries (mismo criterio que
+        // listPaged): los singles no entran acá, sus imágenes vienen de Scryfall (cacheadas).
+        List<UUID> nonSinIds = inStock.stream()
+                .filter(p -> p.getCategory() == null || !"SIN".equals(p.getCategory().getShortName()))
+                .map(Product::getId)
+                .collect(Collectors.toList());
+
+        Map<UUID, List<String>> imagesByProduct = new HashMap<>();
+        if (!nonSinIds.isEmpty()) {
+            imageRepository.findByProductIdsOrdered(nonSinIds).stream()
+                    .collect(Collectors.groupingBy(
+                            img -> img.getProduct().getId(),
+                            Collectors.mapping(Image::getUrl, Collectors.toList())
+                    ))
+                    .forEach(imagesByProduct::put);
+        }
+
+        return inStock.stream()
+                .map(p -> toResponseWithImages(p, imagesByProduct))
                 .collect(Collectors.toList());
     }
 
@@ -229,6 +249,57 @@ public class ProductServiceImpl implements ProductService {
                 .collect(Collectors.toList());
 
         return new PagedProductResponse(content, totalElements, totalPages, page);
+    }
+
+    // Últimos "limit" productos agregados en stock, agrupando singles por (scryfallId, finish)
+    // igual que listCatalogPaged -- sin cargar el catálogo completo como hacía listAll(), que
+    // es lo que volvía lento el slider de "Novedades" con miles de productos.
+    @Override
+    public List<ProductResponse> listNewest(int limit) {
+        // Sobre-fetchea filas crudas (varias condiciones/idiomas de la misma carta+finish son
+        // filas separadas) para asegurar que entren suficientes cartas DISTINTAS antes de
+        // agrupar -- margen generoso porque una carta rara vez tiene más de unas pocas
+        // variantes de condición/idioma cargadas.
+        int rawFetchSize = Math.max(limit * 10, 100);
+        List<Product> raw = productRepository.findNewestInStock(PageRequest.of(0, rawFetchSize));
+
+        // raw ya viene ordenado por createdAt DESC, así que la primera fila de cada grupo que
+        // aparece es la más nueva de ese grupo.
+        Map<String, Product> newestByGroup = new LinkedHashMap<>();
+        for (Product p : raw) {
+            boolean isSingle = p.getCategory() != null && "SIN".equals(p.getCategory().getShortName())
+                    && p.getScryfallId() != null && p.getFinish() != null;
+            String key = isSingle ? p.getScryfallId() + ":" + p.getFinish().getId() : p.getId().toString();
+            if (newestByGroup.containsKey(key)) continue;
+            newestByGroup.put(key, p);
+            if (newestByGroup.size() >= limit) break;
+        }
+
+        List<CatalogEntry> entries = newestByGroup.values().stream()
+                .map(representative -> {
+                    boolean isSingle = representative.getCategory() != null
+                            && "SIN".equals(representative.getCategory().getShortName())
+                            && representative.getScryfallId() != null && representative.getFinish() != null;
+                    if (!isSingle) {
+                        return new CatalogEntry(representative, representative.getStock(), representative.getPrice(), null);
+                    }
+                    // Stock/precio agregados sobre TODAS las condiciones/idiomas de esta
+                    // carta+finish (no solo las que entraron en el fetch crudo), para que el
+                    // dato mostrado sea igual de correcto que en el catálogo/carrito.
+                    List<Product> siblings = productRepository.findByScryfallIdAndFinishId(
+                            representative.getScryfallId(), representative.getFinish().getId());
+                    int totalStock = siblings.stream().mapToInt(Product::getStock).sum();
+                    BigDecimal minPrice = siblings.stream()
+                            .map(Product::getPrice)
+                            .min(Comparator.naturalOrder())
+                            .orElse(representative.getPrice());
+                    return new CatalogEntry(representative, totalStock, minPrice, siblings.size());
+                })
+                .collect(Collectors.toList());
+
+        return entries.stream()
+                .map(this::toCatalogResponse)
+                .collect(Collectors.toList());
     }
 
     private record CatalogEntry(Product representative, int stock, BigDecimal price, Integer variantCount) {}

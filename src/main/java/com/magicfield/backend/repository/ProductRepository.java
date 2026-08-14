@@ -87,6 +87,23 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
         @Param("allCategories") boolean allCategories
     );
 
+    // scryfallIds distintos entre los singles en stock -- insumo para precalentar el caché
+    // en memoria de ScryfallService.getCardData al arrancar la app (ver ScryfallCacheWarmer).
+    @Query("SELECT DISTINCT p.scryfallId FROM Product p WHERE p.scryfallId IS NOT NULL AND p.stock > 0")
+    List<String> findDistinctScryfallIdsInStock();
+
+    // Filas crudas más recientes en stock (varias condiciones/idiomas de la misma carta+finish
+    // cuentan como filas separadas) -- insumo para listNewest(), que las agrupa igual que
+    // listCatalogPaged antes de devolver la cantidad pedida. LEFT JOIN FETCH de category:
+    // necesaria para decidir si cada fila es un single agrupable o no.
+    @Query("""
+        SELECT p FROM Product p
+        LEFT JOIN FETCH p.category c
+        WHERE p.stock > 0
+        ORDER BY p.createdAt DESC
+    """)
+    List<Product> findNewestInStock(Pageable pageable);
+
     // Productos agotados (stock = 0) que ya no tienen ventas PENDING asociadas:
     // candidatos a restaurar desde el admin.
     // Excluye singles (SIN): sus datos/precio vienen de Scryfall y no tiene sentido restaurarlos manualmente.

@@ -72,6 +72,19 @@ public class ProductController {
                 .body(result);
     }
 
+    // Últimos productos agregados en stock -- para el slider de "Novedades" del home, sin
+    // traer el catálogo completo como GET /api/products.
+    @GetMapping("/newest")
+    public ResponseEntity<List<ProductResponse>> listNewest(
+            @RequestParam(defaultValue = "20") int limit
+    ) {
+        int clampedLimit = Math.min(Math.max(limit, 1), 50);
+        List<ProductResponse> result = productService.listNewest(clampedLimit);
+        return ResponseEntity.ok()
+                .header("Cache-Control", "public, max-age=60, stale-while-revalidate=120")
+                .body(result);
+    }
+
     // Todas las variantes (condición/idioma) en stock de la misma carta+finish que el
     // producto dado — para el selector de variantes de la pantalla de detalle.
     @GetMapping("/{id}/variants")

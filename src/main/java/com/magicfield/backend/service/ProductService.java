@@ -21,6 +21,10 @@ public interface ProductService {
 
     PagedProductResponse listCatalogPaged(String search, List<String> categories, int page, int size, String sort);
 
+    // Últimos "limit" productos agregados en stock, agrupando singles por (carta+finish) --
+    // para el slider de "Novedades", sin traer el catálogo completo como listAll().
+    List<ProductResponse> listNewest(int limit);
+
     PagedProductResponse listRestorablePaged(String search, int page, int size);
 
     List<ProductResponse> getVariants(UUID productId);

@@ -10,7 +10,12 @@ import java.util.UUID;
 @Entity
 @Table(name = "products", indexes = {
     @Index(name = "idx_product_stock", columnList = "stock"),
-    @Index(name = "idx_product_category_id", columnList = "category_id")
+    @Index(name = "idx_product_category_id", columnList = "category_id"),
+    @Index(name = "idx_product_created_at", columnList = "created_at"),
+    // Compuesto en vez de uno solo por scryfall_id: findByScryfallIdAndFinishId (variantes,
+    // catálogo, listNewest) filtra siempre por los dos juntos, y por la regla del prefijo
+    // izquierdo este índice también sirve a cualquier query que filtre solo por scryfall_id.
+    @Index(name = "idx_product_scryfall_finish", columnList = "scryfall_id, finish_id")
 })
 public class Product {
 

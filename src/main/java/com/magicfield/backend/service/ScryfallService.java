@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class ScryfallService {
@@ -260,6 +261,14 @@ public class ScryfallService {
         return getCardData(scryfallId).getImageUrls();
     }
 
+    // Imágenes + oracle text de una impresión puntual de Scryfall son inmutables (mismo
+    // criterio que Product.variantTags) -- se cachean en memoria por scryfallId para que
+    // listar el catálogo completo (listAll, usado por el slider de novedades y el de
+    // relacionados) no dispare un GET a Scryfall por cada single en cada request. Solo se
+    // cachean respuestas exitosas: si Scryfall falla o tarda, ese scryfallId simplemente
+    // vuelve a intentarse en la próxima llamada en vez de quedar "envenenado" en el caché.
+    private final Map<String, ScryfallCardData> cardDataCache = new ConcurrentHashMap<>();
+
     /**
      * Imágenes + texto de reglas (oracle text) de una carta, en una sola llamada a Scryfall.
      * El texto de reglas se usa como "descripción" del single al mostrarlo (siempre actualizada,
@@ -267,11 +276,16 @@ public class ScryfallService {
      * text en cartas sin habilidades.
      */
     public ScryfallCardData getCardData(String scryfallId) {
+        ScryfallCardData cached = cardDataCache.get(scryfallId);
+        if (cached != null) return cached;
+
         try {
             acquireRateLimit();
             String url = "https://api.scryfall.com/cards/" + scryfallId;
             Map response = restTemplate.getForObject(url, Map.class);
-            return parseCardData(response);
+            ScryfallCardData data = parseCardData(response);
+            cardDataCache.put(scryfallId, data);
+            return data;
         } catch (Exception e) {
             log.error("[Scryfall] error en getCardData scryfallId={}: {}", scryfallId, e.getMessage());
             return new ScryfallCardData(new ArrayList<>(), null);

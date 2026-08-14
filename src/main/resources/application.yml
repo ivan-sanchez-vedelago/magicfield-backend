@@ -1,5 +1,9 @@
 server:
   port: ${PORT:8080}
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/plain,text/css,application/javascript
+    min-response-size: 1024
 
 spring:
 
@@ -21,6 +25,10 @@ spring:
             non_contextual_creation: true
           time_zone: UTC
         format_sql: false
+        # Agrupa los SELECT de relaciones lazy (category/condition/language/finish) en lotes
+        # de hasta 50 IDs en vez de una query por fila -- elimina el N+1 al listar catálogos
+        # grandes (listAll/listPaged/listCatalogPaged).
+        default_batch_fetch_size: 50
 
   jackson:
     time-zone: UTC
