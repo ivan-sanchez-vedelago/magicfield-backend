@@ -53,4 +53,18 @@ public class Category {
     public void setShortName(String shortName) {
         this.shortName = shortName;
     }
+
+    // shortName es único por categoría (ver @Column arriba) -- un producto sellado nunca tiene
+    // category.shortName == "PSL" directamente, sino el de su subcategoría hoja (ej. "PRECON",
+    // creada a mano desde el árbol del admin). Sube por parent hasta encontrar rootShortName o
+    // llegar a la raíz, para poder preguntar "¿esta hoja cuelga de PSL/SIN?" sin asumir que el
+    // producto está categorizado de forma plana.
+    public boolean isDescendantOfOrSelf(String rootShortName) {
+        Category c = this;
+        while (c != null) {
+            if (rootShortName.equals(c.getShortName())) return true;
+            c = c.getParent();
+        }
+        return false;
+    }
 }

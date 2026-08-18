@@ -64,14 +64,13 @@ public class OrderService {
 
     /**
      * Tags de variante de arte/marco (Borderless, Extended Art, etc.), set, N° de coleccionista,
-     * condición, idioma y finish de un single, en ese orden -- mismo criterio y mismo orden que
-     * se muestra en carrito y en los paneles de pedidos, para que el mail de confirmación diga
-     * exactamente lo mismo que ve el usuario/admin. Vacío para no-singles.
+     * condición, idioma y finish, en ese orden -- mismo criterio y mismo orden que se muestra
+     * en carrito y en los paneles de pedidos, para que el mail de confirmación diga exactamente
+     * lo mismo que ve el usuario/admin. Presence-based (no por categoría): cada línea ya es
+     * null-safe por su cuenta, así que sellados aportan set/condición/idioma y naturalmente no
+     * aportan collectorNumber/finish/variantTags (que nunca tienen). Vacío si no hay nada.
      */
     private static String buildVariantSuffix(Product product) {
-        if (product.getCategory() == null || !"SIN".equals(product.getCategory().getShortName())) {
-            return "";
-        }
         List<String> parts = new ArrayList<>();
         product.getVariantTagsList().forEach(tag ->
                 parts.add(ScryfallService.VARIANT_TAG_LABELS.getOrDefault(tag, tag)));
@@ -175,17 +174,18 @@ public class OrderService {
             audit.setOrderId(orderId);  // ← Asocia este item con la orden
             audit.setProductId(product.getId());
             audit.setProductName(product.getName());
-            if (product.getCategory() != null && "SIN".equals(product.getCategory().getShortName())) {
-                List<String> variantTagLabels = product.getVariantTagsList().stream()
-                        .map(tag -> ScryfallService.VARIANT_TAG_LABELS.getOrDefault(tag, tag))
-                        .toList();
-                audit.setVariantTags(variantTagLabels.isEmpty() ? null : String.join(", ", variantTagLabels));
-                audit.setSet(product.getSet());
-                audit.setCollectorNumber(product.getCollectorNumber());
-                audit.setConditionName(product.getCondition() != null ? product.getCondition().getLongName() : null);
-                audit.setLanguageName(product.getLanguage() != null ? product.getLanguage().getLongName() : null);
-                audit.setFinishName(product.getFinish() != null ? product.getFinish().getLongName() : null);
-            }
+            // Presence-based, no por categoría (ver buildVariantSuffix arriba): cada setter es
+            // null-safe por su cuenta, así que sellados quedan con set/condición/idioma
+            // completos y collectorNumber/finish/variantTags naturalmente en null.
+            List<String> variantTagLabels = product.getVariantTagsList().stream()
+                    .map(tag -> ScryfallService.VARIANT_TAG_LABELS.getOrDefault(tag, tag))
+                    .toList();
+            audit.setVariantTags(variantTagLabels.isEmpty() ? null : String.join(", ", variantTagLabels));
+            audit.setSet(product.getSet());
+            audit.setCollectorNumber(product.getCollectorNumber());
+            audit.setConditionName(product.getCondition() != null ? product.getCondition().getLongName() : null);
+            audit.setLanguageName(product.getLanguage() != null ? product.getLanguage().getLongName() : null);
+            audit.setFinishName(product.getFinish() != null ? product.getFinish().getLongName() : null);
             audit.setQuantity(item.getQuantity());
             audit.setUnitPrice(product.getPrice());
             audit.setSubtotal(BigDecimal.valueOf(subtotal));

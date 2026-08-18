@@ -21,6 +21,13 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     // de variantes de la pantalla de detalle.
     List<Product> findByScryfallIdAndFinishId(String scryfallId, Long finishId);
 
+    // Análogos a los de arriba pero para sellados, que no tienen scryfallId/finish: se agrupan
+    // por (nombre, set) en su lugar. Dedup/merge al crear y selector de variantes en detalle.
+    Optional<Product> findByNameAndSetAndConditionIdAndLanguageId(
+            String name, String set, Long conditionId, Long languageId);
+
+    List<Product> findByNameAndSet(String name, String set);
+
     // LEFT JOIN FETCH de condition/finish: updatePrices() no es @Transactional, así que sin
     // este fetch eager, leer p.getCondition()/p.getFinish() fuera de la query fallaría con
     // LazyInitializationException (la sesión que trajo estos Product ya está cerrada).

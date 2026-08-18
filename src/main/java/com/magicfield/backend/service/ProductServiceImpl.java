@@ -127,10 +127,13 @@ public class ProductServiceImpl implements ProductService {
                 .filter(p -> p.getStock() > 0)
                 .collect(Collectors.toList());
 
-        // Bulk-load images for non-SIN products to eliminate N+1 queries (mismo criterio que
-        // listPaged): los singles no entran acá, sus imágenes vienen de Scryfall (cacheadas).
+        // Bulk-load images para productos sin scryfallId (sellados/accesorios) y eliminar el
+        // N+1: los que sí tienen scryfallId (singles) no entran acá, sus imágenes vienen de
+        // Scryfall (cacheadas). Presence-based en vez de comparar contra "SIN": el shortName
+        // de categoría de un producto real nunca es literalmente "SIN"/"PSL" si está en una
+        // subcategoría hoja (ver Category.isDescendantOfOrSelf).
         List<UUID> nonSinIds = inStock.stream()
-                .filter(p -> p.getCategory() == null || !"SIN".equals(p.getCategory().getShortName()))
+                .filter(p -> p.getScryfallId() == null)
                 .map(Product::getId)
                 .collect(Collectors.toList());
 
@@ -169,9 +172,9 @@ public class ProductServiceImpl implements ProductService {
                 PageRequest.of(page, size, pageSort)
         );
 
-        // Bulk-load images for non-SIN products to eliminate N+1 queries
+        // Bulk-load images para productos sin scryfallId (ver mismo criterio en listAll())
         List<UUID> nonSinIds = productPage.getContent().stream()
-                .filter(p -> p.getCategory() == null || !"SIN".equals(p.getCategory().getShortName()))
+                .filter(p -> p.getScryfallId() == null)
                 .map(Product::getId)
                 .collect(Collectors.toList());
 
@@ -213,29 +216,30 @@ public class ProductServiceImpl implements ProductService {
 
         List<Product> all = productRepository.findAllMatching(normalizedSearch, cats, allCategories);
 
+        // Presence-based (no por categoría): un producto real nunca tiene category.shortName
+        // literalmente "SIN"/"PSL" si está en una subcategoría hoja (ver Category.
+        // isDescendantOfOrSelf), así que agrupar hay que decidirlo por qué datos tiene, no por
+        // el tipo. Singles se agrupan por (scryfallId, finish); sellados por (nombre, set).
         Map<String, List<Product>> singleGroups = new LinkedHashMap<>();
+        Map<String, List<Product>> sealedGroups = new LinkedHashMap<>();
         List<CatalogEntry> entries = new ArrayList<>();
 
         for (Product p : all) {
-            boolean isSingle = p.getCategory() != null && "SIN".equals(p.getCategory().getShortName())
-                    && p.getScryfallId() != null && p.getFinish() != null;
+            boolean isSingle = p.getScryfallId() != null && p.getFinish() != null;
+            boolean isSealed = !isSingle && p.getSet() != null;
             if (isSingle) {
                 String key = p.getScryfallId() + ":" + p.getFinish().getId();
                 singleGroups.computeIfAbsent(key, k -> new ArrayList<>()).add(p);
+            } else if (isSealed) {
+                String key = p.getName() + ":" + p.getSet();
+                sealedGroups.computeIfAbsent(key, k -> new ArrayList<>()).add(p);
             } else {
                 entries.add(new CatalogEntry(p, p.getStock(), p.getPrice(), null));
             }
         }
 
-        for (List<Product> group : singleGroups.values()) {
-            Product representative = group.get(0);
-            int totalStock = group.stream().mapToInt(Product::getStock).sum();
-            BigDecimal minPrice = group.stream()
-                    .map(Product::getPrice)
-                    .min(Comparator.naturalOrder())
-                    .orElse(representative.getPrice());
-            entries.add(new CatalogEntry(representative, totalStock, minPrice, group.size()));
-        }
+        mergeGroupsIntoEntries(singleGroups, entries);
+        mergeGroupsIntoEntries(sealedGroups, entries);
 
         entries.sort(catalogComparator(sort));
 
@@ -264,12 +268,17 @@ public class ProductServiceImpl implements ProductService {
         List<Product> raw = productRepository.findNewestInStock(PageRequest.of(0, rawFetchSize));
 
         // raw ya viene ordenado por createdAt DESC, así que la primera fila de cada grupo que
-        // aparece es la más nueva de ese grupo.
+        // aparece es la más nueva de ese grupo. Presence-based, mismo criterio que
+        // listCatalogPaged: singles por (scryfallId, finish), sellados por (nombre, set).
         Map<String, Product> newestByGroup = new LinkedHashMap<>();
         for (Product p : raw) {
-            boolean isSingle = p.getCategory() != null && "SIN".equals(p.getCategory().getShortName())
-                    && p.getScryfallId() != null && p.getFinish() != null;
-            String key = isSingle ? p.getScryfallId() + ":" + p.getFinish().getId() : p.getId().toString();
+            boolean isSingle = p.getScryfallId() != null && p.getFinish() != null;
+            boolean isSealed = !isSingle && p.getSet() != null;
+            String key = isSingle
+                    ? p.getScryfallId() + ":" + p.getFinish().getId()
+                    : isSealed
+                        ? p.getName() + ":" + p.getSet()
+                        : p.getId().toString();
             if (newestByGroup.containsKey(key)) continue;
             newestByGroup.put(key, p);
             if (newestByGroup.size() >= limit) break;
@@ -277,23 +286,21 @@ public class ProductServiceImpl implements ProductService {
 
         List<CatalogEntry> entries = newestByGroup.values().stream()
                 .map(representative -> {
-                    boolean isSingle = representative.getCategory() != null
-                            && "SIN".equals(representative.getCategory().getShortName())
-                            && representative.getScryfallId() != null && representative.getFinish() != null;
-                    if (!isSingle) {
-                        return new CatalogEntry(representative, representative.getStock(), representative.getPrice(), null);
-                    }
                     // Stock/precio agregados sobre TODAS las condiciones/idiomas de esta
-                    // carta+finish (no solo las que entraron en el fetch crudo), para que el
-                    // dato mostrado sea igual de correcto que en el catálogo/carrito.
-                    List<Product> siblings = productRepository.findByScryfallIdAndFinishId(
-                            representative.getScryfallId(), representative.getFinish().getId());
-                    int totalStock = siblings.stream().mapToInt(Product::getStock).sum();
-                    BigDecimal minPrice = siblings.stream()
-                            .map(Product::getPrice)
-                            .min(Comparator.naturalOrder())
-                            .orElse(representative.getPrice());
-                    return new CatalogEntry(representative, totalStock, minPrice, siblings.size());
+                    // carta+finish (o nombre+set para sellados) -- no solo las que entraron en
+                    // el fetch crudo, para que el dato mostrado sea igual de correcto que en
+                    // el catálogo/carrito.
+                    if (representative.getScryfallId() != null && representative.getFinish() != null) {
+                        List<Product> siblings = productRepository.findByScryfallIdAndFinishId(
+                                representative.getScryfallId(), representative.getFinish().getId());
+                        return aggregateEntry(representative, siblings);
+                    }
+                    if (representative.getSet() != null) {
+                        List<Product> siblings = productRepository.findByNameAndSet(
+                                representative.getName(), representative.getSet());
+                        return aggregateEntry(representative, siblings);
+                    }
+                    return new CatalogEntry(representative, representative.getStock(), representative.getPrice(), null);
                 })
                 .collect(Collectors.toList());
 
@@ -303,6 +310,23 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private record CatalogEntry(Product representative, int stock, BigDecimal price, Integer variantCount) {}
+
+    // Suma stock, se queda con el precio mínimo y cuenta cuántas variantes había en cada grupo
+    // -- mismo criterio para singles (scryfallId+finish) y sellados (nombre+set).
+    private void mergeGroupsIntoEntries(Map<String, List<Product>> groups, List<CatalogEntry> entries) {
+        for (List<Product> group : groups.values()) {
+            entries.add(aggregateEntry(group.get(0), group));
+        }
+    }
+
+    private CatalogEntry aggregateEntry(Product representative, List<Product> siblings) {
+        int totalStock = siblings.stream().mapToInt(Product::getStock).sum();
+        BigDecimal minPrice = siblings.stream()
+                .map(Product::getPrice)
+                .min(Comparator.naturalOrder())
+                .orElse(representative.getPrice());
+        return new CatalogEntry(representative, totalStock, minPrice, siblings.size());
+    }
 
     private ProductResponse toCatalogResponse(CatalogEntry entry) {
         ProductResponse response = toResponse(entry.representative());
@@ -330,21 +354,29 @@ public class ProductServiceImpl implements ProductService {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ProductNotFoundException(productId));
 
-        if (product.getScryfallId() == null || product.getFinish() == null) {
-            return List.of(toResponse(product));
+        if (product.getScryfallId() != null && product.getFinish() != null) {
+            return productRepository.findByScryfallIdAndFinishId(product.getScryfallId(), product.getFinish().getId())
+                    .stream()
+                    .filter(p -> p.getStock() > 0)
+                    .map(this::toResponse)
+                    .collect(Collectors.toList());
         }
 
-        return productRepository.findByScryfallIdAndFinishId(product.getScryfallId(), product.getFinish().getId())
-                .stream()
-                .filter(p -> p.getStock() > 0)
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+        if (product.getSet() != null) {
+            return productRepository.findByNameAndSet(product.getName(), product.getSet())
+                    .stream()
+                    .filter(p -> p.getStock() > 0)
+                    .map(this::toResponse)
+                    .collect(Collectors.toList());
+        }
+
+        return List.of(toResponse(product));
     }
 
     private ProductResponse toResponseWithImages(Product p, Map<UUID, List<String>> imagesByProduct) {
         List<String> imageUrls;
         String description = p.getDescription();
-        if (p.getCategory() != null && "SIN".equals(p.getCategory().getShortName()) && p.getScryfallId() != null) {
+        if (p.getScryfallId() != null) {
             ScryfallService.ScryfallCardData cardData = scryfallService.getCardData(p.getScryfallId());
             imageUrls = cardData.getImageUrls();
             if (cardData.getDescription() != null) description = cardData.getDescription();
@@ -435,8 +467,14 @@ public class ProductServiceImpl implements ProductService {
         Category category = categoryRepository.findByShortName(request.getType().toUpperCase())
                 .orElseThrow(() -> new IllegalArgumentException("Tipo de producto inválido: " + request.getType()));
 
-        if ("SIN".equals(category.getShortName())) {
+        // El shortName de la categoría hoja nunca es literalmente "SIN"/"PSL" si el producto
+        // está en una subcategoría (ej. "PRECON" bajo Sellados) -- hay que subir la cadena de
+        // padres para saber de qué rama es (ver Category.isDescendantOfOrSelf).
+        if (category.isDescendantOfOrSelf("SIN")) {
             return createOrMergeSingle(request, category);
+        }
+        if (category.isDescendantOfOrSelf("PSL")) {
+            return createOrMergeSealed(request, category);
         }
 
         Product p = new Product();
@@ -457,6 +495,7 @@ public class ProductServiceImpl implements ProductService {
                 .orElseThrow(() -> new IllegalArgumentException("Finish inválido: " + request.getFinishId()));
         CardCondition condition = cardConditionRepository.findById(request.getConditionId())
                 .orElseThrow(() -> new IllegalArgumentException("Condición inválida: " + request.getConditionId()));
+        validateConditionApplicableTo(condition, "SIN");
         CardLanguage language = cardLanguageRepository.findById(request.getLanguageId())
                 .orElseThrow(() -> new IllegalArgumentException("Idioma inválido: " + request.getLanguageId()));
 
@@ -523,6 +562,68 @@ public class ProductServiceImpl implements ProductService {
         return response;
     }
 
+    // Espejo de createOrMergeSingle pero sin ninguna llamada a Scryfall: el precio de un
+    // sellado siempre es manual, y no tiene scryfallId/finish contra qué validar. Si ya existe
+    // un producto con el mismo nombre+set+condición+idioma, suma el stock en vez de duplicar.
+    private ProductResponse createOrMergeSealed(ProductRequest request, Category category) {
+        if (request.getSet() == null || request.getSet().isBlank()) {
+            throw new IllegalArgumentException("El set es requerido para productos sellados");
+        }
+        if (request.getConditionId() == null) {
+            throw new IllegalArgumentException("La condición es requerida para productos sellados");
+        }
+        if (request.getLanguageId() == null) {
+            throw new IllegalArgumentException("El idioma es requerido para productos sellados");
+        }
+
+        CardCondition condition = cardConditionRepository.findById(request.getConditionId())
+                .orElseThrow(() -> new IllegalArgumentException("Condición inválida: " + request.getConditionId()));
+        validateConditionApplicableTo(condition, "PSL");
+        CardLanguage language = cardLanguageRepository.findById(request.getLanguageId())
+                .orElseThrow(() -> new IllegalArgumentException("Idioma inválido: " + request.getLanguageId()));
+
+        Optional<Product> existing = productRepository.findByNameAndSetAndConditionIdAndLanguageId(
+                request.getName(), request.getSet(), condition.getId(), language.getId());
+        if (existing.isPresent()) {
+            return mergeStockInto(existing.get(), request.getStock());
+        }
+
+        Product p = new Product();
+        p.setName(request.getName());
+        p.setDescription(request.getDescription());
+        p.setStock(request.getStock());
+        p.setCategory(category);
+        p.setSet(request.getSet());
+        p.setCondition(condition);
+        p.setLanguage(language);
+        p.setPrice(applyRetailPricing(request.getPrice()));
+
+        try {
+            Product saved = productRepository.save(p);
+            return toResponse(saved);
+        } catch (DataIntegrityViolationException e) {
+            // No hay constraint único para sellados hoy (ver plan), pero se deja el mismo
+            // manejo defensivo que createOrMergeSingle por si en el futuro se agrega uno.
+            Product raceExisting = productRepository.findByNameAndSetAndConditionIdAndLanguageId(
+                    request.getName(), request.getSet(), condition.getId(), language.getId())
+                    .orElseThrow(() -> e);
+            return mergeStockInto(raceExisting, request.getStock());
+        }
+    }
+
+    // Defensa en profundidad: aunque el admin ya filtra las opciones del dropdown por tipo de
+    // producto, esto evita que un request armado a mano le asigne NM a un sellado o NEW a un
+    // single. Tolerante a applicableType == null (filas viejas antes de correr la migración de
+    // datos que lo completa) -- bloquear ahí rompería la creación/edición de singles ni bien
+    // se agregue la columna, antes de que el script de backfill llegue a correr.
+    private void validateConditionApplicableTo(CardCondition condition, String rootShortName) {
+        String applicable = condition.getApplicableType();
+        if (applicable != null && !rootShortName.equals(applicable)) {
+            throw new IllegalArgumentException(
+                    "La condición '" + condition.getShortName() + "' no es válida para este tipo de producto");
+        }
+    }
+
     @Override
     public ProductResponse update(UUID id, ProductRequest request) {
         Product p = productRepository.findById(id)
@@ -532,9 +633,16 @@ public class ProductServiceImpl implements ProductService {
         p.setDescription(request.getDescription());
         p.setStock(request.getStock());
 
-        boolean isSingle = p.getCategory() != null && "SIN".equals(p.getCategory().getShortName());
+        // Mismo criterio de ancestría que create(): la categoría hoja de un sellado nunca es
+        // literalmente "SIN"/"PSL".
+        Category category = p.getCategory();
+        boolean isSingle = category != null && category.isDescendantOfOrSelf("SIN");
+        boolean isSealed = !isSingle && category != null && category.isDescendantOfOrSelf("PSL");
+
         if (isSingle) {
             updateSingleFields(p, request);
+        } else if (isSealed) {
+            updateSealedFields(p, request);
         } else {
             p.setPrice(applyRetailPricing(request.getPrice()));
         }
@@ -604,6 +712,33 @@ public class ProductServiceImpl implements ProductService {
             p.setPrice(convertUsdToArs(usd, p.getCondition().getPriceMultiplier()));
             p.setLastPriceUpdate(LocalDateTime.now());
         }
+    }
+
+    // A diferencia de updateSingleFields, exige set/condición/idioma completos en TODA edición
+    // de un sellado -- decisión explícita: no hay excepción "solo si el admin los toca", ni
+    // siquiera para editar un sellado viejo que solo necesitaba un ajuste de stock/precio. Sin
+    // recálculo de precio vía Scryfall -- el precio de un sellado siempre es manual.
+    private void updateSealedFields(Product p, ProductRequest request) {
+        if (request.getSet() == null || request.getSet().isBlank()) {
+            throw new IllegalArgumentException("El set es requerido para productos sellados");
+        }
+        if (request.getConditionId() == null) {
+            throw new IllegalArgumentException("La condición es requerida para productos sellados");
+        }
+        if (request.getLanguageId() == null) {
+            throw new IllegalArgumentException("El idioma es requerido para productos sellados");
+        }
+
+        CardCondition condition = cardConditionRepository.findById(request.getConditionId())
+                .orElseThrow(() -> new IllegalArgumentException("Condición inválida: " + request.getConditionId()));
+        validateConditionApplicableTo(condition, "PSL");
+        CardLanguage language = cardLanguageRepository.findById(request.getLanguageId())
+                .orElseThrow(() -> new IllegalArgumentException("Idioma inválido: " + request.getLanguageId()));
+
+        p.setSet(request.getSet());
+        p.setCondition(condition);
+        p.setLanguage(language);
+        p.setPrice(applyRetailPricing(request.getPrice()));
     }
 
     @Override
@@ -952,7 +1087,7 @@ public class ProductServiceImpl implements ProductService {
         List<String> imageUrls;
         String description = p.getDescription();
 
-        if (p.getCategory() != null && "SIN".equals(p.getCategory().getShortName()) && p.getScryfallId() != null) {
+        if (p.getScryfallId() != null) {
             ScryfallService.ScryfallCardData cardData = scryfallService.getCardData(p.getScryfallId());
             imageUrls = cardData.getImageUrls();
             if (cardData.getDescription() != null) description = cardData.getDescription();

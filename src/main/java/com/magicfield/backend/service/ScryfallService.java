@@ -10,11 +10,14 @@ import org.springframework.web.client.RestTemplate;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
 
 @Service
 public class ScryfallService {
@@ -356,5 +359,92 @@ public class ScryfallService {
 
         public List<String> getImageUrls() { return imageUrls; }
         public String getDescription() { return description; }
+    }
+
+    // ---- Sets curados, para el picker de "set" de productos sellados ----
+
+    // Solo estos set_type son "productos reales" vendibles como sobres/cajas selladas --
+    // Scryfall reporta muchos otros (promo/token/memorabilia/alchemy/funny/etc.) que son ruido
+    // para este picker. digital=true (solo Arena) y parent_set_code presente (sub-listados
+    // promocionales/de variante de un set real) también se excluyen: esto último es justamente
+    // lo que generaba las entradas con nombres casi duplicados que motivaron este filtro.
+    private static final Set<String> CURATED_SET_TYPES = Set.of("core", "expansion", "masters", "draft_innovation");
+
+    // Los sets de Magic cambian pocas veces al año -- se cachea en memoria una sola vez (sin
+    // job @Scheduled) y se refresca a mano vía refreshCuratedSetsCache() cuando haga falta.
+    private volatile List<ScryfallSetInfo> curatedSetsCache = null;
+    private final Object setsCacheLock = new Object();
+
+    public List<ScryfallSetInfo> getCuratedSets() {
+        List<ScryfallSetInfo> cached = curatedSetsCache;
+        if (cached != null) return cached;
+
+        synchronized (setsCacheLock) {
+            cached = curatedSetsCache;
+            if (cached != null) return cached; // otro hilo ya la cargó mientras esperábamos el lock
+
+            try {
+                acquireRateLimit();
+                Map response = restTemplate.getForObject("https://api.scryfall.com/sets", Map.class);
+                if (response == null) return List.of();
+
+                List<Map> data = (List<Map>) response.get("data");
+                if (data == null) return List.of();
+
+                List<ScryfallSetInfo> filtered = data.stream()
+                        .filter(s -> CURATED_SET_TYPES.contains(s.get("set_type")))
+                        .filter(s -> !Boolean.TRUE.equals(s.get("digital")))
+                        .filter(s -> s.get("parent_set_code") == null)
+                        .map(s -> new ScryfallSetInfo(
+                                (String) s.get("code"),
+                                (String) s.get("name"),
+                                (String) s.get("icon_svg_uri")))
+                        .sorted(Comparator.comparing(ScryfallSetInfo::name, String.CASE_INSENSITIVE_ORDER))
+                        .toList();
+
+                curatedSetsCache = filtered; // solo se cachea si llegamos hasta acá sin excepción
+                return filtered;
+            } catch (Exception e) {
+                log.error("[Scryfall] error en getCuratedSets: {}", e.getMessage());
+                return List.of(); // no se cachea la falla -- el próximo pedido reintenta
+            }
+        }
+    }
+
+    // Refresco manual (ej. disparado desde un endpoint de admin) para cuando sale un set nuevo
+    // -- mismo espíritu que backfillVariantTags(): sin job periódico porque el dato cambia poco.
+    public void refreshCuratedSetsCache() {
+        synchronized (setsCacheLock) {
+            curatedSetsCache = null;
+        }
+        getCuratedSets();
+    }
+
+    public record ScryfallSetInfo(String code, String name, String iconSvgUri) {}
+
+    // SVG crudo del símbolo de un set, bajo demanda -- no se piden los ~700+ de una junto con
+    // getCuratedSets(), saldría carísimo contra el rate limit compartido; solo se cachea (y
+    // pide) el del set que alguien esté mirando en ese momento. Se normalizan los fill
+    // hardcodeados a currentColor para que, insertado inline en el front, el ícono herede el
+    // color del texto circundante en modo claro y oscuro en vez de quedar pegado al color que
+    // trae el archivo.
+    private final Map<String, String> setIconCache = new ConcurrentHashMap<>();
+    private static final Pattern SVG_FILL_PATTERN = Pattern.compile("fill=\"(?!currentColor)[^\"]*\"");
+
+    public String getSetIconSvg(String code, String iconSvgUri) {
+        String cached = setIconCache.get(code);
+        if (cached != null) return cached;
+
+        try {
+            acquireRateLimit();
+            String raw = restTemplate.getForObject(iconSvgUri, String.class);
+            if (raw == null) return null;
+            String normalized = SVG_FILL_PATTERN.matcher(raw).replaceAll("fill=\"currentColor\"");
+            setIconCache.put(code, normalized);
+            return normalized;
+        } catch (Exception e) {
+            log.error("[Scryfall] error bajando ícono de set code={}: {}", code, e.getMessage());
+            return null;
+        }
     }
 }

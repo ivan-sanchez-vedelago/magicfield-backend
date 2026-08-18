@@ -40,8 +40,8 @@ public class ProductResponse {
     // se sumó el stock pedido a un producto existente con la misma variante.
     private boolean merged;
 
-    // Solo se llena en el catálogo público agrupado: cantidad de variantes
-    // (condición/idioma) distintas que existen en stock para esta carta+finish.
+    // Solo se llena en el catálogo público agrupado: cantidad de variantes (condición/idioma)
+    // distintas que existen en stock para esta carta+finish (singles) o nombre+set (sellados).
     private Integer variantCount;
 
     public ProductResponse() {

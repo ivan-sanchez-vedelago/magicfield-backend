@@ -20,6 +20,15 @@ public class CardCondition {
     @Column(name = "price_multiplier", nullable = false)
     private BigDecimal priceMultiplier;
 
+    // "SIN" o "PSL": qué categoría raíz puede usar esta condición (NM/LP/... solo para singles,
+    // NEW/USD solo para sellados). Nullable a propósito, aunque hoy toda fila nueva la va a
+    // traer completa: con ddl-auto:update, agregar una columna NOT NULL a una tabla que ya
+    // tiene filas puede fallar el arranque completo si Postgres no puede backfillear un default
+    // (ya nos pasó una vez con un índice sobre una columna mal declarada) -- se backfillea vía
+    // migración de datos después del primer deploy, no vía constraint de esquema.
+    @Column(name = "applicable_type")
+    private String applicableType;
+
     public CardCondition() {
     }
 
@@ -53,5 +62,13 @@ public class CardCondition {
 
     public void setPriceMultiplier(BigDecimal priceMultiplier) {
         this.priceMultiplier = priceMultiplier;
+    }
+
+    public String getApplicableType() {
+        return applicableType;
+    }
+
+    public void setApplicableType(String applicableType) {
+        this.applicableType = applicableType;
     }
 }

@@ -20,7 +20,8 @@ public class ProductRequest {
     @NotNull
     private String type;
 
-    // SINGLE
+    // set/conditionId/languageId son compartidos entre SINGLE y SEALED (sellados no tiene
+    // collectorNumber/finishId/scryfallId, esos siguen siendo exclusivos de SINGLE).
     private String scryfallId;
     private Long finishId;
     private String set;
