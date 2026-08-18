@@ -363,12 +363,20 @@ public class ScryfallService {
 
     // ---- Sets curados, para el picker de "set" de productos sellados ----
 
-    // Solo estos set_type son "productos reales" vendibles como sobres/cajas selladas --
+    // Solo estos set_type son "productos reales" vendibles como sobres/cajas/precons selladas --
     // Scryfall reporta muchos otros (promo/token/memorabilia/alchemy/funny/etc.) que son ruido
     // para este picker. digital=true (solo Arena) y parent_set_code presente (sub-listados
     // promocionales/de variante de un set real) también se excluyen: esto último es justamente
     // lo que generaba las entradas con nombres casi duplicados que motivaron este filtro.
-    private static final Set<String> CURATED_SET_TYPES = Set.of("core", "expansion", "masters", "draft_innovation");
+    // "commander"/"duel_deck"/"box"/etc. cubren precons (Commander decks, Duel Decks, Challenger
+    // Decks, Secret Lair Drop, Guild Kits, Planechase, Archenemy, From the Vault, Commander's
+    // Arsenal, Signature Spellbook) -- sin ellos, ninguna de estas categorías aparecía en el
+    // picker de "Precons" de sellados.
+    private static final Set<String> CURATED_SET_TYPES = Set.of(
+            "core", "expansion", "masters", "draft_innovation",
+            "commander", "duel_deck", "box", "planechase", "archenemy",
+            "premium_deck", "from_the_vault", "arsenal", "spellbook"
+    );
 
     // Los sets de Magic cambian pocas veces al año -- se cachea en memoria una sola vez (sin
     // job @Scheduled) y se refresca a mano vía refreshCuratedSetsCache() cuando haga falta.
