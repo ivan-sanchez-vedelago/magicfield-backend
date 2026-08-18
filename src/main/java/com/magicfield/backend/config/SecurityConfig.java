@@ -53,6 +53,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/conditions").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/languages").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/finishes").permitAll()
+                .requestMatchers("/api/scryfall/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/orders/checkout").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/analytics/collect").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/orders/user/**").permitAll()
