@@ -99,6 +99,11 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     @Query("SELECT DISTINCT p.scryfallId FROM Product p WHERE p.scryfallId IS NOT NULL AND p.stock > 0")
     List<String> findDistinctScryfallIdsInStock();
 
+    // IDs de categoría hoja con al menos un producto en stock -- insumo para CategoryController
+    // decidir qué categorías (y sus ancestros) mostrar en los paneles de navegación/filtro.
+    @Query("SELECT DISTINCT p.category.id FROM Product p WHERE p.category IS NOT NULL AND p.stock > 0")
+    List<Long> findDistinctCategoryIdsWithStock();
+
     // Filas crudas más recientes en stock (varias condiciones/idiomas de la misma carta+finish
     // cuentan como filas separadas) -- insumo para listNewest(), que las agrupa igual que
     // listCatalogPaged antes de devolver la cantidad pedida. LEFT JOIN FETCH de category:
