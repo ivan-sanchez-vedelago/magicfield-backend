@@ -2,6 +2,7 @@ package com.magicfield.backend.service;
 
 import com.magicfield.backend.dto.AvailabilityCheckRequest;
 import com.magicfield.backend.dto.AvailabilityCheckResponse;
+import com.magicfield.backend.dto.BulkSearchResultEntry;
 import com.magicfield.backend.dto.CsvImportResult;
 import com.magicfield.backend.dto.PagedProductResponse;
 import com.magicfield.backend.dto.ProductRequest;
@@ -20,6 +21,10 @@ public interface ProductService {
     PagedProductResponse listPaged(String search, List<String> categories, int page, int size, String sort);
 
     PagedProductResponse listCatalogPaged(String search, List<String> categories, int page, int size, String sort);
+
+    // Filtrar en bulk: una búsqueda por substring (mismo matching que listCatalogPaged) por
+    // cada línea de una decklist pegada, en un solo request -- ver bulkSearchCatalog en la impl.
+    List<BulkSearchResultEntry> bulkSearchCatalog(List<String> queries);
 
     // Últimos "limit" productos agregados en stock, agrupando singles por (carta+finish) --
     // para el slider de "Novedades", sin traer el catálogo completo como listAll().

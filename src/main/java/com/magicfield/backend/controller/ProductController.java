@@ -2,6 +2,8 @@ package com.magicfield.backend.controller;
 
 import com.magicfield.backend.dto.AvailabilityCheckRequest;
 import com.magicfield.backend.dto.AvailabilityCheckResponse;
+import com.magicfield.backend.dto.BulkSearchRequest;
+import com.magicfield.backend.dto.BulkSearchResultEntry;
 import com.magicfield.backend.dto.CsvImportResult;
 import com.magicfield.backend.dto.PagedProductResponse;
 import com.magicfield.backend.dto.ProductRequest;
@@ -70,6 +72,14 @@ public class ProductController {
         return ResponseEntity.ok()
                 .header("Cache-Control", "public, max-age=60, stale-while-revalidate=120")
                 .body(result);
+    }
+
+    // Filtrar en bulk: el cliente pega una decklist ("4 Lightning Bolt\n2 Sol Ring\n...") y el
+    // frontend manda cada nombre ya parseado (sin la cantidad, que es puramente de UI) en un
+    // solo request en vez de uno por línea.
+    @PostMapping("/catalog/bulk-search")
+    public ResponseEntity<List<BulkSearchResultEntry>> bulkSearchCatalog(@Valid @RequestBody BulkSearchRequest request) {
+        return ResponseEntity.ok(productService.bulkSearchCatalog(request.getQueries()));
     }
 
     // Últimos productos agregados en stock -- para el slider de "Novedades" del home, sin

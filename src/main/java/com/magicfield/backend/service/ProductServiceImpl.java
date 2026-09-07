@@ -2,6 +2,7 @@ package com.magicfield.backend.service;
 
 import com.magicfield.backend.dto.AvailabilityCheckRequest;
 import com.magicfield.backend.dto.AvailabilityCheckResponse;
+import com.magicfield.backend.dto.BulkSearchResultEntry;
 import com.magicfield.backend.dto.CheckoutItemRequest;
 import com.magicfield.backend.dto.CsvImportResult;
 import com.magicfield.backend.dto.CsvImportRowError;
@@ -215,7 +216,22 @@ public class ProductServiceImpl implements ProductService {
         String normalizedSearch = (search == null) ? "" : search.trim();
 
         List<Product> all = productRepository.findAllMatching(normalizedSearch, cats, allCategories);
+        List<ProductResponse> sorted = groupAndSortCatalogEntries(all, sort);
 
+        int totalElements = sorted.size();
+        int totalPages = size > 0 ? (int) Math.ceil(totalElements / (double) size) : 0;
+        int fromIndex = Math.min(page * size, totalElements);
+        int toIndex = Math.min(fromIndex + size, totalElements);
+        List<ProductResponse> content = sorted.subList(fromIndex, toIndex);
+
+        return new PagedProductResponse(content, totalElements, totalPages, page);
+    }
+
+    // Agrupa una lista cruda de Product (tal como la devuelve findAllMatching) igual que hace
+    // listCatalogPaged, pero sin paginar -- lo reusan tanto listCatalogPaged como
+    // bulkSearchCatalog (cada búsqueda del bulk-search es, en esencia, el mismo catálogo
+    // filtrado por un nombre puntual).
+    private List<ProductResponse> groupAndSortCatalogEntries(List<Product> all, String sort) {
         // Presence-based (no por categoría): un producto real nunca tiene category.shortName
         // literalmente "SIN"/"PSL" si está en una subcategoría hoja (ver Category.
         // isDescendantOfOrSelf), así que agrupar hay que decidirlo por qué datos tiene, no por
@@ -243,16 +259,28 @@ public class ProductServiceImpl implements ProductService {
 
         entries.sort(catalogComparator(sort));
 
-        int totalElements = entries.size();
-        int totalPages = size > 0 ? (int) Math.ceil(totalElements / (double) size) : 0;
-        int fromIndex = Math.min(page * size, totalElements);
-        int toIndex = Math.min(fromIndex + size, totalElements);
-
-        List<ProductResponse> content = entries.subList(fromIndex, toIndex).stream()
+        return entries.stream()
                 .map(this::toCatalogResponse)
                 .collect(Collectors.toList());
+    }
 
-        return new PagedProductResponse(content, totalElements, totalPages, page);
+    // Filtrar en bulk: una búsqueda por substring (mismo matching que ya usa /catalog) por cada
+    // línea que el cliente pegó, en un solo request en vez de uno por línea. El orden del
+    // resultado espeja el de "queries" para que el frontend pueda zipear cantidad+resultado por
+    // índice sin que acá haga falta saber nada de "cantidad" (eso es puramente de UI).
+    @Override
+    public List<BulkSearchResultEntry> bulkSearchCatalog(List<String> queries) {
+        List<BulkSearchResultEntry> results = new ArrayList<>();
+        for (String rawQuery : queries) {
+            String query = rawQuery == null ? "" : rawQuery.trim();
+            if (query.isEmpty()) {
+                results.add(new BulkSearchResultEntry(rawQuery, List.of()));
+                continue;
+            }
+            List<Product> matches = productRepository.findAllMatching(query, List.of(""), true);
+            results.add(new BulkSearchResultEntry(rawQuery, groupAndSortCatalogEntries(matches, "NAME_ASC")));
+        }
+        return results;
     }
 
     // Últimos "limit" productos agregados en stock, agrupando singles por (scryfallId, finish)
