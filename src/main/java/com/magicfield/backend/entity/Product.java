@@ -43,7 +43,11 @@ public class Product {
     // Hibernate 6.2 no resuelve columnas implícitas al procesar @Index/columnList si no hay un
     // @Column(name=...) declarado, y rompía el arranque con "column 'created_at' was not found"
     // -- ver idx_product_created_at más arriba. No cambia el nombre real de la columna en la BD.
-    @Column(name = "created_at", nullable = false, updatable = false)
+    //
+    // Sin updatable=false a propósito (a diferencia de la mayoría de columnas "created_at" del
+    // proyecto): ProductServiceImpl.update() la actualiza deliberadamente al restaurar un
+    // producto agotado, para que vuelva a contar como "nuevo" en /newest -- ver ese método.
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
     @Column

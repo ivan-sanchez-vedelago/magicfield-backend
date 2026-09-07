@@ -658,6 +658,13 @@ public class ProductServiceImpl implements ProductService {
         Product p = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
 
+        // Capturado ANTES de mutar stock más abajo: si el producto estaba agotado y esta
+        // edición le vuelve a poner stock, se lo trata como recién restaurado (ver bump de
+        // createdAt al final) -- no importa si pasó por la pantalla de "Restaurar" o por una
+        // edición común que le corrigió el stock, el efecto de volver a estar disponible es
+        // el mismo.
+        boolean wasOutOfStock = p.getStock() == 0;
+
         // Mismo criterio de ancestría que create(): la categoría hoja de un sellado nunca es
         // literalmente "SIN"/"PSL".
         Category category = p.getCategory();
@@ -682,6 +689,13 @@ public class ProductServiceImpl implements ProductService {
         p.setName(request.getName());
         p.setDescription(request.getDescription());
         p.setStock(request.getStock());
+
+        // Restaurado (agotado -> con stock de nuevo): se actualiza createdAt para que vuelva a
+        // contar como "nuevo" en /api/products/newest y en el badge "Nuevo" del frontend, en
+        // vez de seguir rankeando por su fecha de creación original.
+        if (wasOutOfStock && request.getStock() > 0) {
+            p.setCreatedAt(LocalDateTime.now());
+        }
 
         try {
             Product saved = productRepository.save(p);
