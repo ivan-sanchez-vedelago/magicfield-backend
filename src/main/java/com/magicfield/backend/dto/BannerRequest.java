@@ -11,8 +11,6 @@ public class BannerRequest {
 
     private boolean active = true;
 
-    private int sortOrder = 0;
-
     public BannerRequest() {}
 
     public String getTitle() { return title; }
@@ -23,7 +21,4 @@ public class BannerRequest {
 
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
-
-    public int getSortOrder() { return sortOrder; }
-    public void setSortOrder(int sortOrder) { this.sortOrder = sortOrder; }
 }

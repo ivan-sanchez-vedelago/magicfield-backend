@@ -1,5 +1,6 @@
 package com.magicfield.backend.controller;
 
+import com.magicfield.backend.dto.BannerReorderRequest;
 import com.magicfield.backend.dto.BannerRequest;
 import com.magicfield.backend.dto.BannerResponse;
 import com.magicfield.backend.service.BannerService;
@@ -43,6 +44,12 @@ public class BannerController {
             @PathVariable Long id,
             @Valid @RequestBody BannerRequest request) {
         return ResponseEntity.ok(bannerService.update(id, request));
+    }
+
+    /** Confirma el modo "editar orden" del admin: orderedIds ya viene en el orden final deseado. */
+    @PutMapping("/reorder")
+    public ResponseEntity<List<BannerResponse>> reorder(@Valid @RequestBody BannerReorderRequest request) {
+        return ResponseEntity.ok(bannerService.reorder(request.getOrderedIds()));
     }
 
     @PostMapping("/{id}/image")
