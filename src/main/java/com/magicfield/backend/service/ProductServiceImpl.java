@@ -625,13 +625,10 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional
     public ProductResponse update(UUID id, ProductRequest request) {
         Product p = productRepository.findById(id)
                 .orElseThrow(() -> new ProductNotFoundException(id));
-
-        p.setName(request.getName());
-        p.setDescription(request.getDescription());
-        p.setStock(request.getStock());
 
         // Mismo criterio de ancestría que create(): la categoría hoja de un sellado nunca es
         // literalmente "SIN"/"PSL".
@@ -639,6 +636,13 @@ public class ProductServiceImpl implements ProductService {
         boolean isSingle = category != null && category.isDescendantOfOrSelf("SIN");
         boolean isSealed = !isSingle && category != null && category.isDescendantOfOrSelf("PSL");
 
+        // Las validaciones de updateSingleFields/updateSealedFields (ej. set/condición/idioma
+        // requeridos para sellados) tienen que correr ANTES de tocar la entidad gestionada: si
+        // mutamos name/description/stock primero y la validación tira una excepción después,
+        // ese estado ya mutado queda "sucio" en el persistence context y un autoflush disparado
+        // por cualquier lectura posterior (ej. el lazy-load de category más arriba, en otro
+        // request) puede escribirlo en la base antes de que el cliente vea el error -- eso
+        // explicaba el reporte de "error al restaurar, pero el producto ya había cambiado".
         if (isSingle) {
             updateSingleFields(p, request);
         } else if (isSealed) {
@@ -646,6 +650,10 @@ public class ProductServiceImpl implements ProductService {
         } else {
             p.setPrice(applyRetailPricing(request.getPrice()));
         }
+
+        p.setName(request.getName());
+        p.setDescription(request.getDescription());
+        p.setStock(request.getStock());
 
         try {
             Product saved = productRepository.save(p);

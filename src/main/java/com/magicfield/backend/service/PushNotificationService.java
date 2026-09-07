@@ -8,13 +8,17 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class PushNotificationService {
@@ -39,21 +43,40 @@ public class PushNotificationService {
         log.info("[PushNotificationService] Token registrado (platform={}): {}", platform, token);
     }
 
+    /** Nombre + precio unitario de un ítem del pedido, usado para armar el resumen de productos. */
+    public record OrderItemSummary(String productName, BigDecimal unitPrice) {
+    }
+
     public void notifyNewOrder(String title, String body) {
+        notifyNewOrder(title, body, null, List.of());
+    }
+
+    public void notifyNewOrder(String title, String body, UUID orderId, List<OrderItemSummary> items) {
         List<PushDeviceToken> tokens = pushDeviceTokenRepository.findAll();
         log.info("[PushNotificationService] notifyNewOrder: {} token(s) registrados", tokens.size());
         if (tokens.isEmpty()) {
             return;
         }
 
+        // Expo (exp.host) no ofrece una API soportada de "resumen colapsado / detalle al
+        // expandir" para push remoto sin eyectar a un módulo nativo (ej. Notifee) -- por eso
+        // toda la info (nombres de producto + primeros 3 por precio desc) va directo en el
+        // body, en vez de depender de un gesto de expandir la notificación.
+        String fullBody = body + productsSummaryLine(items);
+
         List<Map<String, Object>> messages = tokens.stream()
-                .map(t -> Map.<String, Object>of(
-                        "to", t.getToken(),
-                        "title", title,
-                        "body", body,
-                        "sound", "default",
-                        "priority", "high"
-                ))
+                .map(t -> {
+                    Map<String, Object> message = new LinkedHashMap<>();
+                    message.put("to", t.getToken());
+                    message.put("title", title);
+                    message.put("body", fullBody);
+                    message.put("sound", "default");
+                    message.put("priority", "high");
+                    if (orderId != null) {
+                        message.put("data", Map.of("orderId", orderId.toString()));
+                    }
+                    return message;
+                })
                 .toList();
 
         try {
@@ -78,6 +101,21 @@ public class PushNotificationService {
         } catch (Exception e) {
             log.error("[PushNotificationService] Error enviando push: {}", e.getMessage());
         }
+    }
+
+    /**
+     * "\nProductos: A, B, C..." con los primeros 3 nombres ordenados por precio unitario
+     * descendente, y "..." al final si hay más de 3 ítems en el pedido. Vacío si no hay ítems.
+     */
+    private static String productsSummaryLine(List<OrderItemSummary> items) {
+        if (items == null || items.isEmpty()) return "";
+        List<String> topNames = items.stream()
+                .sorted(Comparator.comparing(OrderItemSummary::unitPrice).reversed())
+                .limit(3)
+                .map(OrderItemSummary::productName)
+                .toList();
+        String suffix = items.size() > 3 ? "..." : "";
+        return "\nProductos: " + String.join(", ", topNames) + suffix;
     }
 
     /** Loguea el resultado por token y da de baja los que Expo reporta como no registrados. */

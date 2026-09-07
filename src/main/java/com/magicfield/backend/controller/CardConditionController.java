@@ -27,7 +27,7 @@ public class CardConditionController {
         List<CardCondition> conditions =
                 (applicableType == null || applicableType.isBlank())
                         ? cardConditionRepository.findAll(Sort.by(Sort.Direction.ASC, "id"))
-                        : cardConditionRepository.findByApplicableType(applicableType.toUpperCase());
+                        : cardConditionRepository.findByApplicableTypeOrderById(applicableType.toUpperCase());
 
         return conditions.stream()
                 .map(c -> new CardConditionResponse(c.getId(), c.getShortName(), c.getLongName(), c.getPriceMultiplier()))

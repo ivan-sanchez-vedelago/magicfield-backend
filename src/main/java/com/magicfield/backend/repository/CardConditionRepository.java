@@ -7,5 +7,5 @@ import java.util.List;
 
 public interface CardConditionRepository extends JpaRepository<CardCondition, Long> {
 
-    List<CardCondition> findByApplicableType(String applicableType);
+    List<CardCondition> findByApplicableTypeOrderById(String applicableType);
 }

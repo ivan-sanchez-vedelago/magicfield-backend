@@ -134,6 +134,7 @@ public class OrderService {
         orderTextClient.append("\nProductos:\n");
 
         double total = 0;
+        List<PushNotificationService.OrderItemSummary> itemSummaries = new ArrayList<>();
 
         for (CheckoutItemRequest item : request.getItems()) {
 
@@ -165,6 +166,8 @@ public class OrderService {
                     .append(" = $")
                     .append(subtotal)
                     .append("\n");
+
+            itemSummaries.add(new PushNotificationService.OrderItemSummary(product.getName(), product.getPrice()));
 
             // DESCUESTO STOCK (usa tu servicio existente)
             productService.decreaseStock(product.getId(), item.getQuantity());
@@ -239,7 +242,9 @@ public class OrderService {
         try {
             pushNotificationService.notifyNewOrder(
                 "Nuevo pedido recibido",
-                clienteName + " - $" + total
+                clienteName + " - $" + total,
+                orderId,
+                itemSummaries
             );
         } catch (Exception e) {
             log.error("[OrderService] Error enviando push admin para orderId={}: {}", orderId, e.getMessage());
