@@ -22,7 +22,9 @@ import com.magicfield.backend.repository.CardConditionRepository;
 import com.magicfield.backend.repository.CardFinishRepository;
 import com.magicfield.backend.repository.CardLanguageRepository;
 import com.magicfield.backend.repository.CategoryRepository;
+import com.magicfield.backend.repository.CsvImportReceiptRepository;
 import com.magicfield.backend.repository.ImageRepository;
+import com.magicfield.backend.repository.ProductCreationRequestRepository;
 import com.magicfield.backend.repository.ProductRepository;
 import jakarta.transaction.Transactional;
 import org.apache.commons.csv.CSVFormat;
@@ -38,14 +40,18 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -66,6 +72,8 @@ public class ProductServiceImpl implements ProductService {
     private final ImageRepository imageRepository;
     private final ScryfallService scryfallService;
     private final DollarService dollarService;
+    private final CsvImportReceiptRepository csvImportReceiptRepository;
+    private final ProductCreationRequestRepository productCreationRequestRepository;
     private final CardConditionRepository cardConditionRepository;
     private final CardLanguageRepository cardLanguageRepository;
     private final CardFinishRepository cardFinishRepository;
@@ -76,6 +84,8 @@ public class ProductServiceImpl implements ProductService {
                               ImageRepository imageRepository,
                               ScryfallService scryfallService,
                               DollarService dollarService,
+                              CsvImportReceiptRepository csvImportReceiptRepository,
+                              ProductCreationRequestRepository productCreationRequestRepository,
                               CardConditionRepository cardConditionRepository,
                               CardLanguageRepository cardLanguageRepository,
                               CardFinishRepository cardFinishRepository) {
@@ -85,6 +95,8 @@ public class ProductServiceImpl implements ProductService {
         this.imageRepository = imageRepository;
         this.scryfallService = scryfallService;
         this.dollarService = dollarService;
+        this.csvImportReceiptRepository = csvImportReceiptRepository;
+        this.productCreationRequestRepository = productCreationRequestRepository;
         this.cardConditionRepository = cardConditionRepository;
         this.cardLanguageRepository = cardLanguageRepository;
         this.cardFinishRepository = cardFinishRepository;
@@ -491,29 +503,48 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public ProductResponse create(ProductRequest request) {
+    @Transactional
+    public ProductResponse create(ProductRequest request, String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.isBlank() || idempotencyKey.length() > 100) {
+            throw new IllegalArgumentException("La clave Idempotency-Key es requerida y debe tener hasta 100 caracteres");
+        }
+        if (productCreationRequestRepository.claimRequest(idempotencyKey) == 0) {
+            UUID productId = productCreationRequestRepository.findProductIdByIdempotencyKey(idempotencyKey)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "La solicitud de creación ya está siendo procesada; intentá nuevamente"));
+            return productRepository.findById(productId)
+                    .map(this::toResponse)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "No se encontró el producto asociado a la solicitud de creación"));
+        }
+
         Category category = categoryRepository.findByShortName(request.getType().toUpperCase())
                 .orElseThrow(() -> new IllegalArgumentException("Tipo de producto inválido: " + request.getType()));
 
+        ProductResponse created;
         // El shortName de la categoría hoja nunca es literalmente "SIN"/"PSL" si el producto
         // está en una subcategoría (ej. "PRECON" bajo Sellados) -- hay que subir la cadena de
         // padres para saber de qué rama es (ver Category.isDescendantOfOrSelf).
         if (category.isDescendantOfOrSelf("SIN")) {
-            return createOrMergeSingle(request, category);
-        }
-        if (category.isDescendantOfOrSelf("PSL")) {
-            return createOrMergeSealed(request, category);
+            created = createOrMergeSingle(request, category);
+        } else if (category.isDescendantOfOrSelf("PSL")) {
+            created = createOrMergeSealed(request, category);
+        } else {
+            Product p = new Product();
+            p.setName(request.getName());
+            p.setDescription(request.getDescription());
+            p.setStock(request.getStock());
+            p.setCategory(category);
+            p.setPrice(applyRetailPricing(request.getPrice()));
+
+            Product saved = productRepository.save(p);
+            created = toResponse(saved);
         }
 
-        Product p = new Product();
-        p.setName(request.getName());
-        p.setDescription(request.getDescription());
-        p.setStock(request.getStock());
-        p.setCategory(category);
-        p.setPrice(applyRetailPricing(request.getPrice()));
-
-        Product saved = productRepository.save(p);
-        return toResponse(saved);
+        if (productCreationRequestRepository.setProductId(idempotencyKey, created.getId()) != 1) {
+            throw new IllegalStateException("No se pudo registrar la solicitud de creación");
+        }
+        return created;
     }
 
     // Si ya existe un producto con la misma variante exacta (carta+finish+condición+idioma),
@@ -838,6 +869,15 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public CsvImportResult importSinglesFromCsv(MultipartFile file) throws IOException {
+        if (file.isEmpty()) {
+            throw new IllegalArgumentException("El archivo CSV está vacío");
+        }
+        byte[] fileContent = file.getBytes();
+        String fileHash = sha256(fileContent);
+        if (csvImportReceiptRepository.claimImport(fileHash) == 0) {
+            throw new IllegalStateException("Este archivo CSV ya fue importado; no se volvió a sumar stock");
+        }
+
         Category singleCategory = categoryRepository.findByShortName("SIN")
                 .orElseThrow(() -> new IllegalStateException("No existe la categoría SIN"));
 
@@ -853,7 +893,8 @@ public class ProductServiceImpl implements ProductService {
         int totalRows = 0;
 
         try (
-                InputStreamReader reader = new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8);
+                InputStreamReader reader = new InputStreamReader(
+                        new ByteArrayInputStream(fileContent), StandardCharsets.UTF_8);
                 CSVParser parser = CSVFormat.DEFAULT.builder()
                         .setHeader()
                         .setSkipHeaderRecord(true)
@@ -928,6 +969,14 @@ public class ProductServiceImpl implements ProductService {
                 totalRows, created, updatedExisting, errors.size());
 
         return new CsvImportResult(totalRows, created, updatedExisting, errors);
+    }
+
+    private String sha256(byte[] content) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("No se pudo calcular la huella del archivo CSV", e);
+        }
     }
 
     private record ParsedSingleRow(

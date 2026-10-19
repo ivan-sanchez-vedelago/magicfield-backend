@@ -38,7 +38,7 @@ public interface ProductService {
 
     ProductResponse getByIdIncludingSoldOut(UUID id);
 
-    ProductResponse create(ProductRequest request);
+    ProductResponse create(ProductRequest request, String idempotencyKey);
 
     ProductResponse update(UUID id, ProductRequest request);
 

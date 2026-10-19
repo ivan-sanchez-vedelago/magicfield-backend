@@ -134,9 +134,10 @@ public class ProductController {
 
     @PostMapping
     public ResponseEntity<ProductResponse> create(
-            @Valid @RequestBody ProductRequest request
+            @Valid @RequestBody ProductRequest request,
+            @RequestHeader("Idempotency-Key") String idempotencyKey
     ) {
-        ProductResponse created = productService.create(request);
+        ProductResponse created = productService.create(request, idempotencyKey);
         return ResponseEntity
                 .created(URI.create("/api/products/" + created.getId()))
                 .body(created);
