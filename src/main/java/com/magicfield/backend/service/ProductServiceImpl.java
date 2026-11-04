@@ -586,6 +586,7 @@ public class ProductServiceImpl implements ProductService {
 
         Product p = new Product();
         p.setName(request.getName());
+        p.setFlavorName(cardData.getFlavorName());
         p.setDescription(description != null ? description : "");
         p.setStock(request.getStock());
         p.setCategory(category);
@@ -793,6 +794,13 @@ public class ProductServiceImpl implements ProductService {
             p.setPrice(convertUsdToArs(usd, p.getCondition().getPriceMultiplier()));
             p.setLastPriceUpdate(LocalDateTime.now());
         }
+
+        if (p.getScryfallId() != null) {
+            ScryfallService.ScryfallCollectionData cardData = finishChangeSnapshot != null
+                    ? finishChangeSnapshot
+                    : scryfallService.getFullCardData(p.getScryfallId());
+            p.setFlavorName(cardData.getFlavorName());
+        }
     }
 
     // A diferencia de updateSingleFields, exige set/condición/idioma completos en TODA edición
@@ -948,6 +956,7 @@ public class ProductServiceImpl implements ProductService {
 
                 Product product = new Product();
                 product.setName(row.name());
+                product.setFlavorName(cardData != null ? cardData.getFlavorName() : null);
                 product.setDescription(description);
                 product.setStock(row.quantity());
                 product.setCategory(singleCategory);
@@ -1136,6 +1145,9 @@ public class ProductServiceImpl implements ProductService {
                         : BigDecimal.ONE;
                 BigDecimal ars = convertUsdToArs(usd, multiplier);
                 p.setPrice(ars);
+                if (cardData != null) {
+                    p.setFlavorName(cardData.getFlavorName());
+                }
                 p.setLastPriceUpdate(LocalDateTime.now());
                 productRepository.save(p);
             } catch (Exception e) {
@@ -1227,8 +1239,32 @@ public class ProductServiceImpl implements ProductService {
             productRepository.save(p);
             updated++;
         }
-
         log.info("[Backfill variantTags] {} de {} singles pendientes actualizados", updated, singles.size());
+        return updated;
+    }
+
+    @Override
+    @Transactional
+    public int backfillFlavorNames() {
+        List<Product> singles = productRepository.findSinglesMissingFlavorName();
+        if (singles.isEmpty()) return 0;
+
+        List<String> distinctScryfallIds = singles.stream()
+                .map(Product::getScryfallId)
+                .distinct()
+                .toList();
+        Map<String, ScryfallService.ScryfallCollectionData> dataByCardId =
+                scryfallService.getCollectionDataBulk(distinctScryfallIds);
+
+        int updated = 0;
+        for (Product p : singles) {
+            ScryfallService.ScryfallCollectionData cardData = dataByCardId.get(p.getScryfallId());
+            if (cardData == null) continue;
+            p.setFlavorName(cardData.getFlavorName());
+            productRepository.save(p);
+            updated++;
+        }
+        log.info("[Backfill flavorName] {} de {} singles pendientes actualizados", updated, singles.size());
         return updated;
     }
 }

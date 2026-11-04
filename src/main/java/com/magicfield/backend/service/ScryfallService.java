@@ -196,37 +196,54 @@ public class ScryfallService {
             acquireRateLimit();
             String url = "https://api.scryfall.com/cards/" + scryfallId;
             Map response = restTemplate.getForObject(url, Map.class);
-            if (response == null) return new ScryfallCollectionData(null, null, List.of(), List.of());
+            if (response == null) return new ScryfallCollectionData(null, null, null, List.of(), List.of());
             return buildSnapshot(response);
         } catch (Exception e) {
             log.error("[Scryfall] error en getFullCardData scryfallId={}: {}", scryfallId, e.getMessage());
-            return new ScryfallCollectionData(null, null, List.of(), List.of());
+            return new ScryfallCollectionData(null, null, null, List.of(), List.of());
         }
     }
 
     private ScryfallCollectionData buildSnapshot(Map card) {
         Object prices = card.get("prices");
         String description = parseCardData(card).getDescription();
+        String flavorName = card.get("flavor_name") instanceof String value && !value.isBlank()
+                ? value : null;
         List<String> variantTags = extractVariantTags(card);
         List<String> finishes = extractFinishes(card);
-        return new ScryfallCollectionData(prices instanceof Map ? (Map) prices : null, description, variantTags, finishes);
+        return new ScryfallCollectionData(
+                prices instanceof Map ? (Map) prices : null,
+                description,
+                flavorName,
+                variantTags,
+                finishes
+        );
     }
 
     public static class ScryfallCollectionData {
         private final Map prices;
         private final String description;
+        private final String flavorName;
         private final List<String> variantTags;
         private final List<String> finishes;
 
-        public ScryfallCollectionData(Map prices, String description, List<String> variantTags, List<String> finishes) {
+        public ScryfallCollectionData(
+                Map prices,
+                String description,
+                String flavorName,
+                List<String> variantTags,
+                List<String> finishes
+        ) {
             this.prices = prices;
             this.description = description;
+            this.flavorName = flavorName;
             this.variantTags = variantTags;
             this.finishes = finishes;
         }
 
         public Map getPrices() { return prices; }
         public String getDescription() { return description; }
+        public String getFlavorName() { return flavorName; }
         public List<String> getVariantTags() { return variantTags; }
         public List<String> getFinishes() { return finishes; }
     }

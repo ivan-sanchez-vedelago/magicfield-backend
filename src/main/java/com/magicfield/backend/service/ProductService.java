@@ -53,4 +53,7 @@ public interface ProductService {
     // Completa variantTags para singles creados antes de que existiera esta funcionalidad.
     // Devuelve la cantidad de productos actualizados.
     int backfillVariantTags();
+
+    // Completa flavor_name para singles creados antes de soportar nombres alternativos.
+    int backfillFlavorNames();
 }

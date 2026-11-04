@@ -60,7 +60,13 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
         LEFT JOIN FETCH p.category c
         WHERE p.stock > 0
         AND (:search = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%'))
-             OR (p.description IS NOT NULL AND LOWER(p.description) LIKE LOWER(CONCAT('%', :search, '%'))))
+             OR (p.flavorName IS NOT NULL AND LOWER(p.flavorName) LIKE LOWER(CONCAT('%', :search, '%')))
+             OR p.name IN (
+                 SELECT related.name FROM Product related
+                 WHERE related.stock > 0
+                 AND related.flavorName IS NOT NULL
+                 AND LOWER(related.flavorName) LIKE LOWER(CONCAT('%', :search, '%'))
+             ))
         AND (:allCategories = true OR (c IS NOT NULL AND c.shortName IN :categories))
     """,
     countQuery = """
@@ -68,7 +74,13 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
         LEFT JOIN p.category c
         WHERE p.stock > 0
         AND (:search = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%'))
-             OR (p.description IS NOT NULL AND LOWER(p.description) LIKE LOWER(CONCAT('%', :search, '%'))))
+             OR (p.flavorName IS NOT NULL AND LOWER(p.flavorName) LIKE LOWER(CONCAT('%', :search, '%')))
+             OR p.name IN (
+                 SELECT related.name FROM Product related
+                 WHERE related.stock > 0
+                 AND related.flavorName IS NOT NULL
+                 AND LOWER(related.flavorName) LIKE LOWER(CONCAT('%', :search, '%'))
+             ))
         AND (:allCategories = true OR (c IS NOT NULL AND c.shortName IN :categories))
     """)
     Page<Product> findPaged(
@@ -85,7 +97,13 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
         LEFT JOIN FETCH p.category c
         WHERE p.stock > 0
         AND (:search = '' OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%'))
-             OR (p.description IS NOT NULL AND LOWER(p.description) LIKE LOWER(CONCAT('%', :search, '%'))))
+             OR (p.flavorName IS NOT NULL AND LOWER(p.flavorName) LIKE LOWER(CONCAT('%', :search, '%')))
+             OR p.name IN (
+                 SELECT related.name FROM Product related
+                 WHERE related.stock > 0
+                 AND related.flavorName IS NOT NULL
+                 AND LOWER(related.flavorName) LIKE LOWER(CONCAT('%', :search, '%'))
+             ))
         AND (:allCategories = true OR (c IS NOT NULL AND c.shortName IN :categories))
     """)
     List<Product> findAllMatching(
@@ -93,6 +111,14 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
         @Param("categories") List<String> categories,
         @Param("allCategories") boolean allCategories
     );
+
+    @Query("""
+        SELECT p FROM Product p
+        WHERE p.category.shortName = 'SIN'
+        AND p.scryfallId IS NOT NULL
+        AND p.flavorName IS NULL
+    """)
+    List<Product> findSinglesMissingFlavorName();
 
     // scryfallIds distintos entre los singles en stock -- insumo para precalentar el caché
     // en memoria de ScryfallService.getCardData al arrancar la app (ver ScryfallCacheWarmer).

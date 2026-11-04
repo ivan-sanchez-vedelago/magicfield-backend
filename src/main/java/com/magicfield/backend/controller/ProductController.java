@@ -192,4 +192,9 @@ public class ProductController {
     public ResponseEntity<Integer> backfillVariantTags() {
         return ResponseEntity.ok(productService.backfillVariantTags());
     }
+
+    @PostMapping("/backfill-flavor-names")
+    public ResponseEntity<Integer> backfillFlavorNames() {
+        return ResponseEntity.ok(productService.backfillFlavorNames());
+    }
 }

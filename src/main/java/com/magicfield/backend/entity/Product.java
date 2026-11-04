@@ -26,6 +26,11 @@ public class Product {
     @Column(nullable = false)
     private String name;
 
+    // Nombre alternativo de Scryfall para versiones especiales (flavor_name), por ejemplo
+    // "Raise Repulsor Shields" para la carta cuyo nombre oficial es "Raise the Palisade".
+    @Column
+    private String flavorName;
+
     @Column(columnDefinition = "text")
     private String description;
 
@@ -109,6 +114,14 @@ public class Product {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getFlavorName() {
+        return flavorName;
+    }
+
+    public void setFlavorName(String flavorName) {
+        this.flavorName = flavorName;
     }
 
     public String getDescription() {
