@@ -276,10 +276,9 @@ public class ProductServiceImpl implements ProductService {
                 .collect(Collectors.toList());
     }
 
-    // Filtrar en bulk: una búsqueda por substring (mismo matching que ya usa /catalog) por cada
-    // línea que el cliente pegó, en un solo request en vez de uno por línea. El orden del
-    // resultado espeja el de "queries" para que el frontend pueda zipear cantidad+resultado por
-    // índice sin que acá haga falta saber nada de "cantidad" (eso es puramente de UI).
+    // Filtrar en bulk por nombre completo, ignorando mayúsculas/minúsculas. El orden del resultado
+    // espeja el de "queries" para que el frontend pueda zipear cantidad+resultado por índice sin
+    // que acá haga falta saber nada de "cantidad" (eso es puramente de UI).
     @Override
     public List<BulkSearchResultEntry> bulkSearchCatalog(List<String> queries) {
         List<BulkSearchResultEntry> results = new ArrayList<>();
@@ -289,7 +288,7 @@ public class ProductServiceImpl implements ProductService {
                 results.add(new BulkSearchResultEntry(rawQuery, List.of()));
                 continue;
             }
-            List<Product> matches = productRepository.findAllMatching(query, List.of(""), true);
+            List<Product> matches = productRepository.findAllInStockByExactName(query);
             results.add(new BulkSearchResultEntry(rawQuery, groupAndSortCatalogEntries(matches, "NAME_ASC")));
         }
         return results;

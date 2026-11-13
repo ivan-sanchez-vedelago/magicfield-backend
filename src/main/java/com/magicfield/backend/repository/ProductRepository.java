@@ -114,6 +114,14 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 
     @Query("""
         SELECT p FROM Product p
+        LEFT JOIN FETCH p.category
+        WHERE p.stock > 0
+        AND LOWER(p.name) = LOWER(:name)
+    """)
+    List<Product> findAllInStockByExactName(@Param("name") String name);
+
+    @Query("""
+        SELECT p FROM Product p
         WHERE p.category.shortName = 'SIN'
         AND p.scryfallId IS NOT NULL
         AND p.flavorName IS NULL
