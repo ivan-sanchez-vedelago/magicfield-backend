@@ -177,6 +177,9 @@ public class OrderService {
             audit.setOrderId(orderId);  // ← Asocia este item con la orden
             audit.setProductId(product.getId());
             audit.setProductName(product.getName());
+            audit.setCategoryName(
+                    product.getCategory() != null ? product.getCategory().getName() : null
+            );
             // Presence-based, no por categoría (ver buildVariantSuffix arriba): cada setter es
             // null-safe por su cuenta, así que sellados quedan con set/condición/idioma
             // completos y collectorNumber/finish/variantTags naturalmente en null.

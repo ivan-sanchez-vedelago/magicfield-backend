@@ -20,6 +20,11 @@ public class SalesAudit {
     @Column(nullable = false)
     private String productName;
 
+    // Snapshot de la categoría para conservar el agrupamiento del pedido aunque el producto
+    // cambie de categoría después de la venta.
+    @Column
+    private String categoryName;
+
     // Snapshot de datos del single al momento de la venta (mismo criterio que productName:
     // strings planos, no FK, para que el registro de auditoría no cambie si luego se
     // editan/borran las tablas de condición/idioma/finish). Null para no-singles.
@@ -132,6 +137,14 @@ public class SalesAudit {
 
     public void setProductName(String productName) {
         this.productName = productName;
+    }
+
+    public String getCategoryName() {
+        return categoryName;
+    }
+
+    public void setCategoryName(String categoryName) {
+        this.categoryName = categoryName;
     }
 
     public String getVariantTags() {
