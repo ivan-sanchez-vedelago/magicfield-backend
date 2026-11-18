@@ -108,6 +108,12 @@ public class OrderService {
             deliveryDescription = "(Envío a domicilio) "
                 + toTitleCase(request.getShippingStreet()) + " " + request.getShippingStreetNumber()
                 + ", " + toTitleCase(request.getShippingCity()) + ", " + toTitleCase(request.getShippingProvince());
+            if (request.getShippingFloor() != null && !request.getShippingFloor().isBlank()) {
+                deliveryDescription += ", Piso " + request.getShippingFloor().trim();
+            }
+            if (request.getShippingApartment() != null && !request.getShippingApartment().isBlank()) {
+                deliveryDescription += ", Departamento " + request.getShippingApartment().trim();
+            }
         } else if ("ENVIO_ANDREANI".equals(deliveryType)) {
             deliveryDescription = "(Envío a sucursal Andreani) "
                 + toTitleCase(request.getShippingStreet()) + " " + request.getShippingStreetNumber()
@@ -203,6 +209,9 @@ public class OrderService {
             audit.setCustomerDni(request.getCustomerDni());
             audit.setShippingStreet(request.getShippingStreet());
             audit.setShippingStreetNumber(request.getShippingStreetNumber());
+            boolean homeDelivery = "ENVIO_DOMICILIO".equals(request.getDeliveryType());
+            audit.setShippingFloor(homeDelivery ? request.getShippingFloor() : null);
+            audit.setShippingApartment(homeDelivery ? request.getShippingApartment() : null);
             audit.setShippingCity(request.getShippingCity());
             audit.setShippingProvince(request.getShippingProvince());
             audit.setShippingPostalCode(request.getShippingPostalCode());

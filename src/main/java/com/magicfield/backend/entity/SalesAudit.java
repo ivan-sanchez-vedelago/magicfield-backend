@@ -101,6 +101,12 @@ public class SalesAudit {
     private String shippingStreetNumber;
 
     @Column(nullable = true)
+    private String shippingFloor;
+
+    @Column(nullable = true)
+    private String shippingApartment;
+
+    @Column(nullable = true)
     private String shippingCity;
 
     @Column(nullable = true)
@@ -309,6 +315,12 @@ public class SalesAudit {
 
     public String getShippingStreetNumber() { return shippingStreetNumber; }
     public void setShippingStreetNumber(String shippingStreetNumber) { this.shippingStreetNumber = shippingStreetNumber; }
+
+    public String getShippingFloor() { return shippingFloor; }
+    public void setShippingFloor(String shippingFloor) { this.shippingFloor = shippingFloor; }
+
+    public String getShippingApartment() { return shippingApartment; }
+    public void setShippingApartment(String shippingApartment) { this.shippingApartment = shippingApartment; }
 
     public String getShippingCity() { return shippingCity; }
     public void setShippingCity(String shippingCity) { this.shippingCity = shippingCity; }
