@@ -28,6 +28,9 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 
     List<Product> findByNameAndSet(String name, String set);
 
+    @Query("SELECT p FROM Product p LEFT JOIN FETCH p.category WHERE p.id IN :ids")
+    List<Product> findAllWithCategoryByIdIn(@Param("ids") List<UUID> ids);
+
     // LEFT JOIN FETCH de condition/finish: updatePrices() no es @Transactional, así que sin
     // este fetch eager, leer p.getCondition()/p.getFinish() fuera de la query fallaría con
     // LazyInitializationException (la sesión que trajo estos Product ya está cerrada).

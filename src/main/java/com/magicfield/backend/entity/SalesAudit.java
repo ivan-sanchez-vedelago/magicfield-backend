@@ -25,6 +25,9 @@ public class SalesAudit {
     @Column
     private String categoryName;
 
+    @Transient
+    private String resolvedCategoryName;
+
     // Snapshot de datos del single al momento de la venta (mismo criterio que productName:
     // strings planos, no FK, para que el registro de auditoría no cambie si luego se
     // editan/borran las tablas de condición/idioma/finish). Null para no-singles.
@@ -140,11 +143,15 @@ public class SalesAudit {
     }
 
     public String getCategoryName() {
-        return categoryName;
+        return categoryName != null ? categoryName : resolvedCategoryName;
     }
 
     public void setCategoryName(String categoryName) {
         this.categoryName = categoryName;
+    }
+
+    public void setResolvedCategoryName(String resolvedCategoryName) {
+        this.resolvedCategoryName = resolvedCategoryName;
     }
 
     public String getVariantTags() {

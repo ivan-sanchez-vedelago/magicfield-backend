@@ -1,12 +1,17 @@
 package com.magicfield.backend.controller;
 
 import com.magicfield.backend.entity.SalesAudit;
+import com.magicfield.backend.entity.Product;
+import com.magicfield.backend.repository.ProductRepository;
 import com.magicfield.backend.repository.SalesAuditRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.List;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.UUID;
 
 @RestController
@@ -15,9 +20,14 @@ import java.util.UUID;
 public class SalesAuditController {
 
     private final SalesAuditRepository salesAuditRepository;
+    private final ProductRepository productRepository;
 
-    public SalesAuditController(SalesAuditRepository salesAuditRepository) {
+    public SalesAuditController(
+            SalesAuditRepository salesAuditRepository,
+            ProductRepository productRepository
+    ) {
         this.salesAuditRepository = salesAuditRepository;
+        this.productRepository = productRepository;
     }
 
     /**
@@ -25,7 +35,29 @@ public class SalesAuditController {
      */
     @GetMapping
     public List<SalesAudit> getAllAudits() {
-        return salesAuditRepository.findAllByOrderBySaleDateDesc();
+        List<SalesAudit> audits = salesAuditRepository.findAllByOrderBySaleDateDesc();
+        List<UUID> productIdsWithoutCategory = audits.stream()
+                .filter(audit -> audit.getCategoryName() == null || audit.getCategoryName().isBlank())
+                .map(SalesAudit::getProductId)
+                .distinct()
+                .toList();
+        if (productIdsWithoutCategory.isEmpty()) {
+            return audits;
+        }
+
+        Map<UUID, Product> productsById = productRepository
+                .findAllWithCategoryByIdIn(productIdsWithoutCategory)
+                .stream()
+                .collect(Collectors.toMap(Product::getId, Function.identity()));
+        audits.stream()
+                .filter(audit -> audit.getCategoryName() == null || audit.getCategoryName().isBlank())
+                .forEach(audit -> {
+                    Product product = productsById.get(audit.getProductId());
+                    if (product != null && product.getCategory() != null) {
+                        audit.setResolvedCategoryName(product.getCategory().getName());
+                    }
+                });
+        return audits;
     }
 
     /**
